@@ -7,8 +7,9 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: **day 1 of 8** · workspace, lints, architecture tests and CI are in
-> place. Screens are placeholders. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
+> Status: **day 2 of 8** · workspace, CI, domain entities, Binance and
+> CoinGecko REST sources, region resolver and SPKI pinning are in place.
+> Screens are still placeholders. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
 
 ## What this repository demonstrates
 
@@ -18,10 +19,10 @@ Binance, CoinGecko and Anthropic directly.
 | WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` (day 3) |
 | Custom candlestick chart on `CustomPainter` | `packages/chart` (day 4) |
 | Offline-first portfolio on Drift, Decimal money | `packages/data_local`, `packages/domain` (day 5) |
-| Region fallback Binance → Binance US → CoinGecko | `packages/data_market` (day 2) |
+| Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
 | Remote Config + server-driven UI | `packages/sdui` (day 6) |
 | Claude API: streaming, tool use, structured output | `packages/ai_insights` (day 6) |
-| SSL pinning by SPKI, secure storage | `packages/data_market` (day 2, 7) |
+| SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage on day 7 |
 | Deferred deep links, attribution, push | `apps/mobile` (day 7) |
 | Unit / golden / Patrol tests, architecture tests | `tooling/arch_test`, `*/test` |
 | GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (day 8) |
@@ -64,9 +65,17 @@ cd apps/mobile && fvm flutter run --dart-define-from-file=../../env.json
 Generated files (`*.g.dart`, `*.freezed.dart`, `*.drift.dart`) are not
 committed; run `melos run generate` after cloning.
 
+To see which market data source your network gets (Binance, its
+market-data host, Binance.US or the CoinGecko fallback):
+
+```bash
+cd packages/data_market && dart run tool/probe_sources.dart
+```
+
 ## Decisions
 
 - [ADR-0001 · Monorepo layout and layer rules](docs/decisions/0001-monorepo-layout.md)
+- [ADR-0002 · Region fallback chain and pinning without a backend](docs/decisions/0002-region-fallback-and-pinning.md)
 - [Backlog](docs/decisions/backlog.md): ideas go here, not into the code.
 
 ## Data sources and privacy
