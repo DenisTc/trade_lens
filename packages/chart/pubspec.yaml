@@ -7,9 +7,9 @@ environment:
   sdk: ^3.13.0
   flutter: ">=3.47.0"
 dependencies:
+  core:
   flutter:
     sdk: flutter
-  core:
 dev_dependencies:
   flutter_test:
     sdk: flutter

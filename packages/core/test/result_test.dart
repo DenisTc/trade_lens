@@ -39,6 +39,23 @@ void main() {
       expect(r.flatMap(half).flatMap(half), const Err<int, String>('odd'));
     });
 
+    test('equality is symmetric across type arguments', () {
+      const Result<int, String> narrow = Ok(1);
+      const Result<num, Object> wide = Ok(1);
+      expect(narrow == wide, wide == narrow);
+      expect(narrow == wide, isFalse);
+      expect(const Ok<int, String>(1), const Ok<int, String>(1));
+      expect(
+        const Ok<int, String>(1).hashCode,
+        const Ok<int, String>(1).hashCode,
+      );
+      expect(const Err<int, String>('e'), const Err<int, String>('e'));
+      expect(
+        const Err<int, String>('e') == const Err<int, Object>('e'),
+        isFalse,
+      );
+    });
+
     test('re-exports Decimal', () {
       expect(Decimal.parse('0.1') + Decimal.parse('0.2'), Decimal.parse('0.3'));
     });

@@ -1,6 +1,6 @@
 # TradeLens · День 1: каркас репозитория Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Melos-монорепо с пустыми, но собирающимися пакетами по слоям, архитектурными тестами, работающим codegen и зелёным GitHub Actions, чтобы дни 2–8 добавляли только код функций.
 
@@ -30,7 +30,7 @@
 
 **Produces:** корневой workspace, в который Task 2–4 добавляют пакеты в список `workspace:`.
 
-- [ ] **Step 1: `.fvmrc`**
+- [x] **Step 1: `.fvmrc`**
 
 ```json
 {
@@ -38,7 +38,7 @@
 }
 ```
 
-- [ ] **Step 2: корневой `pubspec.yaml`**
+- [x] **Step 2: корневой `pubspec.yaml`**
 
 ```yaml
 name: tradelens_workspace
@@ -74,7 +74,7 @@ melos:
       run: dart format --set-exit-if-changed .
 ```
 
-- [ ] **Step 3: `analysis_options.yaml`**
+- [x] **Step 3: `analysis_options.yaml`**
 
 ```yaml
 include: package:very_good_analysis/analysis_options.yaml
@@ -91,7 +91,7 @@ linter:
 
 `very_good_analysis` подключается в каждом пакете как dev_dependency, а корневой файл только `include`-ится из пакетов через `include: ../../analysis_options.yaml`.
 
-- [ ] **Step 4: `.gitignore`, `.editorconfig`, `env.example.json`**
+- [x] **Step 4: `.gitignore`, `.editorconfig`, `env.example.json`**
 
 `env.example.json`:
 ```json
@@ -105,7 +105,7 @@ linter:
 ```
 `.gitignore` включает `env.json`, `.fvm/`, `build/`, `.dart_tool/`, `coverage/`, `pubspec_overrides.yaml`, `*.g.dart` не игнорируем (генерация в CI, но коммитим сгенерированное? Решение: **не коммитим**, CI генерирует; игнорируем `**/*.g.dart`, `**/*.freezed.dart`, `**/*.drift.dart`).
 
-- [ ] **Step 5: Commit** `chore: bootstrap melos workspace`
+- [x] **Step 5: Commit** `chore: bootstrap melos workspace`
 
 ---
 
@@ -116,7 +116,7 @@ linter:
 
 **Produces:** `sealed class Result<T, E>` с `Ok<T,E>(value)`, `Err<T,E>(error)`, методами `map`, `when`, `isOk`, `isErr`. Re-export `package:decimal/decimal.dart`.
 
-- [ ] **Step 1: failing test**
+- [x] **Step 1: failing test**
 
 ```dart
 import 'package:core/core.dart';
@@ -138,10 +138,10 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: run, expect FAIL** `cd packages/core && fvm dart test`
-- [ ] **Step 3: implement** `Result` как sealed class с `const` конструкторами и `==`/`hashCode`.
-- [ ] **Step 4: run, expect PASS**
-- [ ] **Step 5: Commit** `feat(core): add Result type`
+- [x] **Step 2: run, expect FAIL** `cd packages/core && fvm dart test`
+- [x] **Step 3: implement** `Result` как sealed class с `const` конструкторами и `==`/`hashCode`.
+- [x] **Step 4: run, expect PASS**
+- [x] **Step 5: Commit** `feat(core): add Result type`
 
 ---
 
@@ -167,9 +167,9 @@ void main() {
 
 Flutter-пакеты (с `flutter:` sdk): chart, sdui, features/*, data_local (drift + flutter), остальные чистый Dart.
 
-- [ ] **Step 1:** создать пакеты, `fvm flutter pub get` в корне, `melos list` показывает 14 пакетов.
-- [ ] **Step 2:** `melos run test` зелёный.
-- [ ] **Step 3: Commit** `chore: add layered package skeleton`
+- [x] **Step 1:** создать пакеты, `fvm flutter pub get` в корне, `melos list` показывает 14 пакетов.
+- [x] **Step 2:** `melos run test` зелёный.
+- [x] **Step 3: Commit** `chore: add layered package skeleton`
 
 ---
 
@@ -180,11 +180,11 @@ Flutter-пакеты (с `flutter:` sdk): chart, sdui, features/*, data_local (d
 - Create: `apps/mobile/lib/app.dart`, `apps/mobile/lib/router.dart`, `apps/mobile/lib/providers/app_info.dart` (`@Riverpod(keepAlive: true) String appName(Ref ref) => 'TradeLens';`)
 - Test: `apps/mobile/test/app_test.dart` — pumpWidget с `ProviderScope`, ожидаем текст `TradeLens` и что маршрут `/p/BTCUSDT` рендерит заглушку экрана пары с символом.
 
-- [ ] **Step 1: failing widget test**
-- [ ] **Step 2:** `melos run generate`, тест падает на отсутствии виджетов
-- [ ] **Step 3:** реализовать `TradeLensApp` (MaterialApp.router, тема Material 3, `ThemeMode.system`), маршруты `/` (MarketsPlaceholder) и `/p/:symbol` (PairPlaceholder).
-- [ ] **Step 4:** тест зелёный, `fvm flutter build apk --debug` проходит локально.
-- [ ] **Step 5: Commit** `feat(app): bootstrap TradeLens app with riverpod and go_router`
+- [x] **Step 1: failing widget test**
+- [x] **Step 2:** `melos run generate`, тест падает на отсутствии виджетов
+- [x] **Step 3:** реализовать `TradeLensApp` (MaterialApp.router, тема Material 3, `ThemeMode.system`), маршруты `/` (MarketsPlaceholder) и `/p/:symbol` (PairPlaceholder).
+- [x] **Step 4:** тест зелёный, `fvm flutter build apk --debug` проходит локально.
+- [x] **Step 5: Commit** `feat(app): bootstrap TradeLens app with riverpod and go_router`
 
 ---
 
@@ -195,7 +195,7 @@ Flutter-пакеты (с `flutter:` sdk): chart, sdui, features/*, data_local (d
 
 **Produces:** `Map<String, Set<String>> internalDependencies(Directory root)`, `Iterable<File> dartFilesUnder(Directory lib)`.
 
-- [ ] **Step 1: три failing теста**
+- [x] **Step 1: три failing теста**
 
 ```dart
 // dependency_direction_test.dart
@@ -220,8 +220,8 @@ test('features do not import dio', () { ... RegExp(r"import\s+'package:dio/") ..
 
 Чтобы тесты были нетривиальны, в Step 2 намеренно добавить `double` в domain и увидеть красный тест, затем убрать.
 
-- [ ] **Step 2–4:** реализация, красный → зелёный.
-- [ ] **Step 5: Commit** `test(arch): guard dependency direction, no double in domain, no dio in features`
+- [x] **Step 2–4:** реализация, красный → зелёный.
+- [x] **Step 5: Commit** `test(arch): guard dependency direction, no double in domain, no dio in features`
 
 ---
 
@@ -232,9 +232,9 @@ test('features do not import dio', () { ... RegExp(r"import\s+'package:dio/") ..
 
 `ci.yml`: jobs `build` (ubuntu: checkout → subosito/flutter-action с версией из `.fvmrc` → cache pub → `dart pub global activate melos` → `melos bootstrap` → `melos run generate` → `melos run analyze` → `melos run format` → `melos run test` → `flutter build apk --debug` в `apps/mobile` → upload APK + coverage), `golden` (ubuntu, `flutter test --tags golden`, upload `**/failures/**` при падении), `e2e` (macos, только `main` или label `e2e`, ставит `patrol_cli` и печатает «no scenarios yet» — заглушка по спеке дня 1).
 
-- [ ] **Step 1:** написать workflow, проверить `actionlint`/yaml-парсинг локально.
-- [ ] **Step 2:** README: название, бейдж CI, схема пакетов из спеки, раздел «Статус» с чеклистом дней, «Решения» со ссылками на ADR.
-- [ ] **Step 3: Commit** `ci: add analyze/test/build workflow, README and ADR-0001`
+- [x] **Step 1:** написать workflow, проверить `actionlint`/yaml-парсинг локально.
+- [x] **Step 2:** README: название, бейдж CI, схема пакетов из спеки, раздел «Статус» с чеклистом дней, «Решения» со ссылками на ADR.
+- [x] **Step 3: Commit** `ci: add analyze/test/build workflow, README and ADR-0001`
 
 ---
 

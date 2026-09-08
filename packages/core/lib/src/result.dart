@@ -52,10 +52,13 @@ final class Ok<T, E> extends Result<T, E> {
   final T value;
 
   @override
-  bool operator ==(Object other) => other is Ok<T, E> && other.value == value;
+  bool operator ==(Object other) =>
+      other is Ok<T, E> &&
+      other.runtimeType == runtimeType &&
+      other.value == value;
 
   @override
-  int get hashCode => Object.hash(Ok, value);
+  int get hashCode => Object.hash(runtimeType, value);
 
   @override
   String toString() => 'Ok($value)';
@@ -68,10 +71,13 @@ final class Err<T, E> extends Result<T, E> {
   final E error;
 
   @override
-  bool operator ==(Object other) => other is Err<T, E> && other.error == error;
+  bool operator ==(Object other) =>
+      other is Err<T, E> &&
+      other.runtimeType == runtimeType &&
+      other.error == error;
 
   @override
-  int get hashCode => Object.hash(Err, error);
+  int get hashCode => Object.hash(runtimeType, error);
 
   @override
   String toString() => 'Err($error)';
