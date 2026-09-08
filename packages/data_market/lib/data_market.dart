@@ -12,6 +12,7 @@ export 'src/coingecko/coingecko_ids.dart';
 export 'src/coingecko/coingecko_market_data_source.dart';
 export 'src/coingecko/coingecko_parsers.dart';
 export 'src/coingecko/coingecko_rest_client.dart';
+export 'src/coingecko/quote_poller.dart';
 export 'src/errors.dart';
 export 'src/http/dio_factory.dart';
 export 'src/http/pins.dart';

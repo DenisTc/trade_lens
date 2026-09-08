@@ -29,11 +29,15 @@ final class WsMessage {
 /// - Registry changes within [batchWindow] become one `SUBSCRIBE` and one
 ///   `UNSUBSCRIBE`; every outgoing message passes the [OutboundLimiter].
 /// - [heartbeatStream] (a liquid miniTicker) is kept subscribed whenever
-///   anything else is, so [silenceTimeout] without a data frame means the
-///   connection is dead, not the market quiet. The runtime answers
-///   transport pings by itself and never shows them here.
+///   anything else is, so [silenceTimeout] without a data frame of a
+///   wanted stream means the connection is dead, not the market quiet. The
+///   runtime answers transport pings by itself and never shows them here.
 /// - Reconnect with [Backoff]; after reconnecting every wanted stream is
 ///   re-subscribed. Consumers watch [states] to backfill what they missed.
+///
+/// Every socket belongs to a *generation*. Teardown bumps the generation,
+/// so a connect that completes late (after suspend, dispose or a newer
+/// connect) closes its socket instead of taking over.
 final class WsClient {
   WsClient({
     required this._transport,
@@ -73,8 +77,12 @@ final class WsClient {
   Timer? _batchTimer;
   Timer? _silenceTimer;
   Timer? _reconnectTimer;
+  int _generation = 0;
   int _commandId = 0;
   int _connectionCount = 0;
+  bool _connecting = false;
+  bool _syncing = false;
+  bool _syncAgain = false;
   bool _suspended = false;
   bool _disposed = false;
 
@@ -118,8 +126,7 @@ final class WsClient {
   void suspend() {
     if (_disposed || _suspended) return;
     _suspended = true;
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
+    _cancelReconnect();
     _teardown();
     _setState(WsConnectionState.suspended);
   }
@@ -139,8 +146,7 @@ final class WsClient {
     if (_disposed) return;
     _disposed = true;
     _batchTimer?.cancel();
-    _silenceTimer?.cancel();
-    _reconnectTimer?.cancel();
+    _cancelReconnect();
     for (final timer in _pendingUnsubscribes.values) {
       timer.cancel();
     }
@@ -155,8 +161,11 @@ final class WsClient {
 
   // ---------------------------------------------------------------- registry
 
+  /// Streams that must be subscribed: everything with a listener, streams
+  /// inside their unsubscribe grace period, plus the heartbeat while any
+  /// of those exist.
   Set<String> get _wanted {
-    final wanted = _registry.wanted;
+    final wanted = _registry.wanted..addAll(_pendingUnsubscribes.keys);
     final heartbeat = heartbeatStream;
     if (wanted.isNotEmpty && heartbeat != null) wanted.add(heartbeat);
     return wanted;
@@ -190,42 +199,64 @@ final class WsClient {
     });
   }
 
-  /// Brings the exchange subscriptions in line with the registry.
+  /// Brings the exchange subscriptions in line with the registry. Runs one
+  /// at a time; a change during a run schedules another pass.
   Future<void> _sync() async {
-    final connection = _connection;
-    if (_disposed ||
-        connection == null ||
-        _state != WsConnectionState.connected) {
+    if (_syncing) {
+      _syncAgain = true;
       return;
     }
-    final wanted = _wanted;
-    if (wanted.isEmpty) {
-      logger.info('no listeners left, closing socket');
-      _teardown();
-      _setState(WsConnectionState.idle);
-      return;
-    }
-    final toSubscribe = wanted.difference(_serverSubscriptions).toList()
-      ..sort();
-    final toUnsubscribe = _serverSubscriptions.difference(wanted).toList()
-      ..sort();
-    if (toUnsubscribe.isNotEmpty) {
-      _serverSubscriptions.removeAll(toUnsubscribe);
-      await _send(connection, 'UNSUBSCRIBE', toUnsubscribe);
-    }
-    if (toSubscribe.isNotEmpty) {
-      _serverSubscriptions.addAll(toSubscribe);
-      await _send(connection, 'SUBSCRIBE', toSubscribe);
+    _syncing = true;
+    try {
+      await _syncOnce();
+    } finally {
+      _syncing = false;
+      if (_syncAgain && !_disposed) {
+        _syncAgain = false;
+        unawaited(_sync());
+      }
     }
   }
 
-  Future<void> _send(
+  Future<void> _syncOnce() async {
+    if (_disposed) return;
+    final wanted = _wanted;
+    final connection = _connection;
+    if (wanted.isEmpty) {
+      if (connection != null) {
+        logger.info('no listeners left, closing socket');
+        _teardown();
+      }
+      _cancelReconnect();
+      if (!_suspended) _setState(WsConnectionState.idle);
+      return;
+    }
+    if (connection == null || _state != WsConnectionState.connected) return;
+
+    final toUnsubscribe = _serverSubscriptions.difference(wanted).toList()
+      ..sort();
+    if (toUnsubscribe.isNotEmpty) {
+      if (!await _send(connection, 'UNSUBSCRIBE', toUnsubscribe)) return;
+      _serverSubscriptions.removeAll(toUnsubscribe);
+    }
+    // Re-read: listeners may have changed while the limiter held us.
+    final toSubscribe = _wanted.difference(_serverSubscriptions).toList()
+      ..sort();
+    if (toSubscribe.isNotEmpty) {
+      if (!await _send(connection, 'SUBSCRIBE', toSubscribe)) return;
+      _serverSubscriptions.addAll(toSubscribe);
+    }
+  }
+
+  /// False when the socket changed while waiting for a send slot; the new
+  /// socket gets its own sync.
+  Future<bool> _send(
     WsConnection connection,
     String method,
     List<String> params,
   ) async {
     await _limiter.acquire();
-    if (!identical(connection, _connection)) return; // socket changed meanwhile
+    if (!identical(connection, _connection)) return false;
     final command = jsonEncode({
       'method': method,
       'params': params,
@@ -233,17 +264,21 @@ final class WsClient {
     });
     logger.debug('→ $command');
     connection.send(command);
+    return true;
   }
 
   // -------------------------------------------------------------- connection
 
   Future<void> _connect() async {
-    if (_disposed || _suspended || _connection != null) return;
-    if (_state == WsConnectionState.connecting ||
-        (_state == WsConnectionState.reconnecting && _reconnectTimer == null)) {
+    if (_disposed || _suspended || _connection != null || _connecting) return;
+    if (_wanted.isEmpty) {
+      _cancelReconnect();
+      _setState(WsConnectionState.idle);
       return;
     }
     _reconnectTimer = null;
+    _connecting = true;
+    final generation = _generation;
     _setState(
       _connectionCount == 0
           ? WsConnectionState.connecting
@@ -253,13 +288,21 @@ final class WsClient {
     try {
       connection = await _transport.connect(url);
     } on Object catch (e) {
+      _connecting = false;
       if (_disposed || _suspended) return;
+      if (generation != _generation) {
+        unawaited(_connect()); // a newer generation wants a socket
+        return;
+      }
       logger.warn('connect failed', e);
       _scheduleReconnect();
       return;
     }
-    if (_disposed || _suspended) {
-      await connection.close();
+    _connecting = false;
+    if (_disposed || _suspended || generation != _generation) {
+      // Stale: suspend/teardown happened while the handshake was in flight.
+      unawaited(connection.close());
+      if (!_disposed && !_suspended) unawaited(_connect());
       return;
     }
     _connection = connection;
@@ -282,7 +325,6 @@ final class WsClient {
   }
 
   void _onFrame(String text) {
-    _armSilenceTimer();
     final Object? json;
     try {
       json = jsonDecode(text);
@@ -294,9 +336,12 @@ final class WsClient {
     final stream = json['stream'];
     final data = json['data'];
     if (stream is! String || data is! Map<String, Object?>) {
-      // Command acknowledgements: {"result": null, "id": n}.
+      // Command acknowledgements ({"result": null, "id": n}) and errors do
+      // not prove the data path is alive: the silence timer stays as is.
       return;
     }
+    if (!_wanted.contains(stream)) return;
+    _armSilenceTimer();
     _channels[stream]?.add(WsMessage(stream: stream, data: data));
   }
 
@@ -334,9 +379,16 @@ final class WsClient {
     _reconnectTimer = Timer(delay, () => unawaited(_connect()));
   }
 
-  /// Drops the current socket synchronously. Close futures are not awaited:
-  /// the state machine must not depend on how fast a peer acknowledges.
+  void _cancelReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
+  /// Drops the current socket synchronously and invalidates in-flight
+  /// connects. Close futures are not awaited: the state machine must not
+  /// depend on how fast a peer acknowledges.
   void _teardown() {
+    _generation++;
     _silenceTimer?.cancel();
     final connection = _connection;
     final frames = _frames;

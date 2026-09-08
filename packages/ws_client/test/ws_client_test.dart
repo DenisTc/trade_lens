@@ -298,6 +298,111 @@ void main() {
     });
   });
 
+  test('suspend during a slow handshake closes the late socket; resume opens a fresh one', () {
+    fakeAsync((async) {
+      final transport = FakeTransport()
+        ..connectDelay = const Duration(seconds: 2);
+      final client = build(transport);
+      client.subscribe('ethusdt@trade').listen((_) {});
+      async.elapse(const Duration(seconds: 1));
+      expect(transport.connections, isEmpty, reason: 'still handshaking');
+
+      client.suspend();
+      async.elapse(const Duration(seconds: 2));
+      expect(transport.connections, hasLength(1));
+      expect(
+        transport.last.closed,
+        isTrue,
+        reason: 'late socket must not take over',
+      );
+      expect(client.state, WsConnectionState.suspended);
+
+      client.resume();
+      async.elapse(const Duration(seconds: 3));
+      expect(transport.connections, hasLength(2));
+      expect(transport.last.closed, isFalse);
+      expect(client.state, WsConnectionState.connected);
+      expect(paramsOf(transport.last.commands.single), [
+        heartbeat,
+        'ethusdt@trade',
+      ]);
+    });
+  });
+
+  test(
+    'a stream inside its grace period is not unsubscribed by another change',
+    () {
+      fakeAsync((async) {
+        final transport = FakeTransport();
+        final client = build(transport);
+        final trade = client.subscribe('ethusdt@trade').listen((_) {});
+        async.elapse(const Duration(seconds: 1));
+
+        trade.cancel();
+        async.elapse(const Duration(milliseconds: 500));
+        client.subscribe('ethusdt@miniTicker').listen((_) {});
+        async.elapse(const Duration(milliseconds: 500));
+
+        final commands = transport.last.commands;
+        expect(commands, hasLength(2));
+        expect(commands.last['method'], 'SUBSCRIBE');
+        expect(paramsOf(commands.last), ['ethusdt@miniTicker']);
+        expect(
+          client.serverSubscriptions,
+          contains('ethusdt@trade'),
+          reason: 'grace not over',
+        );
+
+        async.elapse(const Duration(seconds: 2));
+        expect(transport.last.commands.last['method'], 'UNSUBSCRIBE');
+        expect(paramsOf(transport.last.commands.last), ['ethusdt@trade']);
+      });
+    },
+  );
+
+  test(
+    'acknowledgements and foreign streams do not reset the silence timer',
+    () {
+      fakeAsync((async) {
+        final transport = FakeTransport();
+        final client = build(transport);
+        client.subscribe('ethusdt@trade').listen((_) {});
+        async.elapse(const Duration(seconds: 1));
+        final first = transport.last;
+
+        for (var i = 0; i < 5; i++) {
+          async.elapse(const Duration(seconds: 10));
+          first
+            ..push({'result': null, 'id': i})
+            ..push({'stream': 'nobody@trade', 'data': <String, Object?>{}});
+        }
+        expect(first.closed, isFalse);
+        async.elapse(const Duration(seconds: 11));
+        expect(first.closed, isTrue, reason: 'no wanted-stream data for 60 s');
+      });
+    },
+  );
+
+  test('reconnect attempts stop once the last listener leaves', () {
+    fakeAsync((async) {
+      final transport = FakeTransport();
+      final client = build(transport);
+      final sub = client.subscribe('ethusdt@trade').listen((_) {});
+      async.elapse(const Duration(seconds: 1));
+
+      transport.failNextConnects = 100;
+      transport.last.drop();
+      async.elapse(const Duration(seconds: 2));
+      expect(client.state, WsConnectionState.reconnecting);
+      final attemptsSoFar = transport.attempts.length;
+
+      sub.cancel();
+      async.elapse(const Duration(minutes: 2));
+      expect(client.state, WsConnectionState.idle);
+      expect(transport.attempts.length - attemptsSoFar, lessThanOrEqualTo(1));
+    });
+  });
+
   test('dispose closes the socket and the channels', () {
     fakeAsync((async) {
       final transport = FakeTransport();

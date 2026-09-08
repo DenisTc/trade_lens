@@ -12,6 +12,9 @@ final class FakeTransport implements WsTransport {
   final List<Uri> attempts = [];
   int failNextConnects = 0;
 
+  /// Simulated handshake time; zero completes in a microtask.
+  Duration connectDelay = Duration.zero;
+
   FakeConnection get last => connections.last;
 
   @override
@@ -20,6 +23,9 @@ final class FakeTransport implements WsTransport {
     if (failNextConnects > 0) {
       failNextConnects--;
       throw const SocketException('refused');
+    }
+    if (connectDelay > Duration.zero) {
+      await Future<void>.delayed(connectDelay);
     }
     final connection = FakeConnection();
     connections.add(connection);

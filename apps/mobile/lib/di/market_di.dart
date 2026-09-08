@@ -83,6 +83,10 @@ Future<LiveMarket> liveMarket(Ref ref) async {
 /// Overrides that bind the interface providers of `features_shared` to the
 /// live stack. Tests pass their own overrides instead.
 List<Override> marketOverrides() => [
+  retryMarketSourceProvider.overrideWith(
+    (ref) =>
+        () => ref.invalidate(liveMarketProvider),
+  ),
   marketDataSourceProvider.overrideWith(
     (ref) async => (await ref.watch(liveMarketProvider.future)).source,
   ),

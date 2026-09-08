@@ -23,7 +23,7 @@ void main() {
     FakeTransport transport,
     FakeHttpAdapter http,
   })
-  build({FakeResponse Function(RequestOptionsLike, int)? rest}) {
+  build({FakeResponse Function(RequestOptionsLike, int)? rest, int? pageSize}) {
     final transport = FakeTransport();
     final http = FakeHttpAdapter(
       (options, i) =>
@@ -45,6 +45,7 @@ void main() {
       ),
       hosts: BinanceHosts.global,
       ws: ws,
+      backfillPageSize: pageSize ?? 500,
     );
     return (source: source, transport: transport, http: http);
   }
@@ -127,6 +128,62 @@ void main() {
       expect(candles, hasLength(1 + 3), reason: 'fixture has 3 candles');
     });
   });
+
+  test(
+    'backfill pages forward and emits history before buffered live candles',
+    () {
+      fakeAsync((async) {
+        final klineFrame = _frame('kline_1m.json');
+        final restCalls = <Map<String, String>>[];
+        // Page size 3 makes the 3-row fixture a full page, so the source asks
+        // for a second page, which comes back empty.
+        final env = build(
+          rest: (req, i) {
+            restCalls.add(req.query);
+            return FakeResponse(
+              200,
+              restCalls.length == 1
+                  ? File('test/fixtures/binance/klines_1m.json')
+                        .readAsStringSync()
+                  : '[]',
+            );
+          },
+          pageSize: 3,
+        );
+        final instrument = env.source.instrumentFor(btc, 'USDT')!;
+        final candles = <Candle>[];
+        env.source.klineStream(instrument, Interval.m1).listen(candles.add);
+        async.elapse(const Duration(seconds: 1));
+        env.transport.last.push(klineFrame);
+        async.flushMicrotasks();
+
+        env.transport.last.drop();
+        async.elapse(const Duration(seconds: 2));
+
+        expect(
+          restCalls,
+          hasLength(2),
+          reason: 'full page → next page → empty',
+        );
+        final fixtureRows = jsonDecode(
+          File('test/fixtures/binance/klines_1m.json').readAsStringSync(),
+        ) as List<Object?>;
+        final lastFixtureOpen = (fixtureRows.last! as List<Object?>)[0]! as int;
+        expect(
+          restCalls[1]['startTime'],
+          '${lastFixtureOpen + 60000}',
+          reason: 'second page starts one interval after the last row',
+        );
+        final times = candles.map((c) => c.openTime).toList();
+        expect(
+          times.skip(1).toList(),
+          [...times.skip(1)]..sort(),
+          reason: 'ordered after the live one',
+        );
+        expect(candles, hasLength(1 + 3));
+      });
+    },
+  );
 
   test('source without a WsClient fails loudly on streams', () {
     final source = BinanceMarketDataSource(

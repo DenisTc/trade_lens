@@ -24,13 +24,17 @@ class QuoteHistory extends _$QuoteHistory {
   @override
   List<Decimal> build(Instrument instrument) {
     ref.listen(quoteProvider(instrument), (_, next) {
-      final quote = next.value;
-      if (quote == null) return;
-      final history = state.length >= capacity
-          ? state.sublist(state.length - capacity + 1)
-          : state;
-      state = [...history, quote.price];
+      // Loading/error states can carry the previous value; only a fresh
+      // AsyncData is a tick.
+      if (next case AsyncData(value: final quote)) _append(quote);
     });
     return const [];
+  }
+
+  void _append(Quote quote) {
+    final history = state.length >= capacity
+        ? state.sublist(state.length - capacity + 1)
+        : state;
+    state = [...history, quote.price];
   }
 }

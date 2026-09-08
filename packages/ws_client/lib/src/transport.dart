@@ -25,8 +25,16 @@ final class IoWsTransport implements WsTransport {
 
   @override
   Future<WsConnection> connect(Uri url) async {
-    final socket = await WebSocket.connect(url.toString())
-        .timeout(connectTimeout);
+    final connecting = WebSocket.connect(url.toString());
+    final socket = await connecting.timeout(
+      connectTimeout,
+      onTimeout: () {
+        // `Future.timeout` does not cancel the handshake; a socket that
+        // opens after the deadline must still be closed.
+        unawaited(connecting.then((s) => s.close(), onError: (Object _) {}));
+        throw TimeoutException('ws connect', connectTimeout);
+      },
+    );
     return _IoConnection(socket);
   }
 }

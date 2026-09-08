@@ -62,7 +62,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> {
         value: instruments,
         error: (error, _) => ErrorView(
           error: error,
-          onRetry: () => ref.invalidate(marketDataSourceProvider),
+          onRetry: ref.read(retryMarketSourceProvider),
         ),
         data: (all) {
           final visible = filterInstruments(all, _search.text);

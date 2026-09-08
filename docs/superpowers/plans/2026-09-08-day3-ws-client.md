@@ -82,4 +82,4 @@
 
 ### Task 5: Codex-ревью, merge
 
-- [ ] `melos run format/analyze/test`, `codex exec` ревью, правки, merge `--no-ff` в `develop`, push.
+- [x] `melos run format/analyze/test`, `codex exec` ревью, правки, merge `--no-ff` в `develop`, push.

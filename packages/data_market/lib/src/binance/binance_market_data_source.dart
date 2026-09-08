@@ -24,7 +24,16 @@ final class BinanceMarketDataSource implements MarketDataSource {
     this._listedSymbols,
     this._logger = const NoopLogger(),
     Clock? clock,
+    this.backfillPageSize = 500,
+    this.backfillMaxPages = 10,
   }) : _clock = clock ?? const Clock();
+
+  /// Binance caps `klines` at 1000 rows; 500 keeps the response light and
+  /// matches the initial history size.
+  final int backfillPageSize;
+
+  /// Bounds a backfill after a very long outage (pages × page size candles).
+  final int backfillMaxPages;
 
   final BinanceRestClient _client;
   final BinanceHosts _hosts;
@@ -149,11 +158,17 @@ final class BinanceMarketDataSource implements MarketDataSource {
   }
 
   /// Live candles plus a REST backfill after every reconnect, from the last
-  /// candle we saw. A candle with an already-seen `openTime` is an update,
-  /// which is how the chart treats it.
+  /// candle we saw.
+  ///
+  /// While the backfill is in flight, live candles are buffered; then the
+  /// history (paged in [backfillPageSize] chunks up to the first buffered
+  /// candle) is emitted before the buffered updates, merged by `openTime`,
+  /// so consumers always see candles in order. A reconnect during a
+  /// backfill starts a new one and the older result is dropped.
   @override
   Stream<Candle> klineStream(Instrument instrument, Interval interval) {
-    if (interval.duration == null) {
+    final step = interval.duration;
+    if (step == null) {
       throw ArgumentError.value(interval, 'interval', 'fixed interval only');
     }
     final ws = _socket;
@@ -161,20 +176,63 @@ final class BinanceMarketDataSource implements MarketDataSource {
     StreamSubscription<WsMessage>? frames;
     StreamSubscription<WsConnectionState>? states;
     DateTime? lastOpenTime;
+    List<Candle>? buffered; // non-null while a backfill is running
     var reconnecting = false;
+    var generation = 0;
+
+    void emit(Candle candle) {
+      lastOpenTime = candle.openTime;
+      final pending = buffered;
+      if (pending != null) {
+        pending.add(candle);
+      } else {
+        controller.add(candle);
+      }
+    }
 
     Future<void> backfill() async {
       final since = lastOpenTime;
       if (since == null) return;
+      final myGeneration = ++generation;
+      buffered ??= [];
       _logger.info(
         'backfilling ${instrument.symbol} ${interval.code} from $since',
       );
-      final result = await klines(instrument, interval, startTime: since);
-      if (controller.isClosed) return;
-      result.when(
-        ok: (candles) => candles.forEach(controller.add),
-        err: controller.addError,
-      );
+      final history = <DateTime, Candle>{};
+      var cursor = since;
+      for (var page = 0; page < backfillMaxPages; page++) {
+        final result = await klines(
+          instrument,
+          interval,
+          startTime: cursor,
+          limit: backfillPageSize,
+        );
+        if (myGeneration != generation || controller.isClosed) return;
+        final candles = switch (result) {
+          Ok(:final value) => value,
+          Err(:final error) => (() {
+            controller.addError(error);
+            return null;
+          })(),
+        };
+        if (candles == null || candles.isEmpty) break;
+        for (final c in candles) {
+          history[c.openTime] = c;
+        }
+        final firstLive = buffered?.firstOrNull?.openTime;
+        final caughtUp =
+            firstLive != null && !candles.last.openTime.isBefore(firstLive);
+        if (candles.length < backfillPageSize || caughtUp) break;
+        cursor = candles.last.openTime.add(step);
+      }
+      // Live updates win over history for the same openTime.
+      for (final c in buffered ?? const <Candle>[]) {
+        history[c.openTime] = c;
+      }
+      buffered = null;
+      history.values.toList()
+        ..sort((a, b) => a.openTime.compareTo(b.openTime))
+        ..forEach(controller.add);
     }
 
     controller = StreamController<Candle>(
@@ -185,9 +243,7 @@ final class BinanceMarketDataSource implements MarketDataSource {
               final k = message.data['k'];
               if (k is! Map<String, Object?>) return;
               try {
-                final candle = parseKlineEvent(k);
-                lastOpenTime = candle.openTime;
-                controller.add(candle);
+                emit(parseKlineEvent(k));
               } on FormatException catch (e) {
                 controller.addError(
                   MarketError.parse(sourceId: id, message: e.message),
@@ -203,6 +259,7 @@ final class BinanceMarketDataSource implements MarketDataSource {
         });
       },
       onCancel: () {
+        generation++;
         unawaited(frames?.cancel());
         unawaited(states?.cancel());
       },

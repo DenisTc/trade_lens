@@ -7,16 +7,16 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: **day 2 of 8** · workspace, CI, domain entities, Binance and
-> CoinGecko REST sources, region resolver and SPKI pinning are in place.
-> Screens are still placeholders. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
+> Status: **day 3 of 8** · workspace, CI, data sources, region fallback,
+> pinning, the WebSocket layer and the live markets list are in place. The
+> pair screen (chart, order book, tape) is next. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
 
 ## What this repository demonstrates
 
 | Skill | Where |
 |---|---|
-| Riverpod 3 with codegen, DI without GetIt | `apps/mobile/lib/providers`, `packages/features/*` |
-| WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` (day 3) |
+| Riverpod 3 with codegen, DI without GetIt | `packages/features/shared`, `apps/mobile/lib/di` |
+| WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` |
 | Custom candlestick chart on `CustomPainter` | `packages/chart` (day 4) |
 | Offline-first portfolio on Drift, Decimal money | `packages/data_local`, `packages/domain` (day 5) |
 | Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
@@ -40,6 +40,7 @@ packages/
   chart/                CustomPainter engine (future pub.dev package)
   sdui/                 JSON schema + node renderer
   ai_insights/          Claude API client, tools, structured output
+  features/shared/      Riverpod providers of the domain interfaces, shared widgets
   features/             markets, portfolio, insights, settings (UI + providers)
 tooling/arch_test/      dependency-direction and coding-rule tests
 docs/decisions/         ADRs, one file per decision
@@ -76,6 +77,7 @@ cd packages/data_market && dart run tool/probe_sources.dart
 
 - [ADR-0001 · Monorepo layout and layer rules](docs/decisions/0001-monorepo-layout.md)
 - [ADR-0002 · Region fallback chain and pinning without a backend](docs/decisions/0002-region-fallback-and-pinning.md)
+- [ADR-0003 · Who owns the interface providers; Riverpod auto-retry off](docs/decisions/0003-provider-ownership.md)
 - [Backlog](docs/decisions/backlog.md): ideas go here, not into the code.
 
 ## Data sources and privacy

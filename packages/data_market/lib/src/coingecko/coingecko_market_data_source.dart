@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:clock/clock.dart';
 import 'package:core/core.dart';
 import 'package:data_market/src/coingecko/coingecko_ids.dart';
 import 'package:data_market/src/coingecko/coingecko_parsers.dart';
 import 'package:data_market/src/coingecko/coingecko_rest_client.dart';
+import 'package:data_market/src/coingecko/quote_poller.dart';
 import 'package:data_market/src/errors.dart';
 import 'package:dio/dio.dart';
 import 'package:domain/domain.dart';
@@ -19,7 +18,9 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
     this.vsCurrency = 'usd',
     this.pollInterval = const Duration(seconds: 60),
     Clock? clock,
-  }) : _clock = clock ?? const Clock();
+  }) : _clock = clock ?? const Clock() {
+    _poller = QuotePoller(fetch: quotes, interval: pollInterval);
+  }
 
   static const sourceId = 'coingecko';
 
@@ -27,6 +28,7 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
   final String vsCurrency;
   final Duration pollInterval;
   final Clock _clock;
+  late final QuotePoller _poller;
 
   @override
   String get id => sourceId;
@@ -116,35 +118,16 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
     }
   }
 
-  /// Emits a fresh batch immediately and then every [pollInterval].
-  /// Errors are forwarded as [MarketError] events, the stream stays open.
+  /// Quotes for [instruments], served by one shared polling loop: the first
+  /// listener triggers a request, then one batch request every
+  /// [pollInterval] for the union of everything listened to. Errors are
+  /// forwarded as [MarketError] events, the stream stays open.
   @override
-  Stream<Quote> quoteStream(List<Instrument> instruments) {
-    late StreamController<Quote> controller;
-    Timer? timer;
+  Stream<Quote> quoteStream(List<Instrument> instruments) =>
+      _poller.streamFor(instruments);
 
-    Future<void> poll() async {
-      final result = await quotes(instruments);
-      if (controller.isClosed) return;
-      result.when(
-        ok: (batch) => batch.forEach(controller.add),
-        err: controller.addError,
-      );
-    }
-
-    controller = StreamController<Quote>(
-      onListen: () {
-        unawaited(poll());
-        timer = Timer.periodic(pollInterval, (_) => unawaited(poll()));
-      },
-      onCancel: () {
-        // Do not return `close()`: its future waits for this very cancel.
-        timer?.cancel();
-        unawaited(controller.close());
-      },
-    );
-    return controller.stream;
-  }
+  /// Instruments currently polled (diagnostics, tests).
+  Set<Instrument> get polledInstruments => _poller.wanted;
 
   @override
   Stream<Candle> klineStream(Instrument instrument, Interval interval) =>
