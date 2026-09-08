@@ -1,6 +1,6 @@
 # TradeLens · День 2: источники данных Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Доменные сущности рынка, интерфейс `MarketDataSource` с двумя REST-реализациями (Binance Global/US, CoinGecko), region resolver с различением 451 и таймаута, SPKI-pinning для Dio и Sentry-фильтр. Всё покрыто unit-тестами на записанных фикстурах, живой сети в тестах нет.
 
@@ -38,8 +38,8 @@
 - `sealed class MarketError`: `RegionBlocked(sourceId)`, `Unavailable(sourceId, reason)`, `RateLimited(retryAfter)`, `QuotaExhausted`, `NetworkFailure`, `ParseFailure(message)`.
 - `abstract interface class MarketDataSource` по спеке; REST-методы возвращают `Result<T, MarketError>`.
 
-- [ ] Тест: `Interval.m15.duration == 15 min`, `Interval.auto.duration == null`; `defaultAssets.length == 20`, id уникальны, `Instrument` равны по значению.
-- [ ] Реализация, `melos run generate`, тесты зелёные, коммит `feat(domain): market entities and MarketDataSource`.
+- [x] Тест: `Interval.m15.duration == 15 min`, `Interval.auto.duration == null`; `defaultAssets.length == 20`, id уникальны, `Instrument` равны по значению.
+- [x] Реализация, `melos run generate`, тесты зелёные, коммит `feat(domain): market entities and MarketDataSource`.
 
 ### Task 2: HTTP-инфраструктура (`packages/data_market/lib/src/http`)
 
@@ -52,8 +52,8 @@
 - `Dio createDio({required Uri baseUrl, PinSet? pins, Logger? logger, Duration timeout})`.
 - `const tradeLensPins = PinSet({...})` — пины сняты 08.09.2026, дата в комментарии.
 
-- [ ] Тесты: пин фикстуры `api.binance.com.der` равен значению из openssl; EC-ключ `api.anthropic.com.der` парсится; чужой пин → false; хост без пинов → true; retry: 2 повтора на 503, ноль на 451/429.
-- [ ] Коммит `feat(data_market): SPKI pinning adapter and retry interceptor`.
+- [x] Тесты: пин фикстуры `api.binance.com.der` равен значению из openssl; EC-ключ `api.anthropic.com.der` парсится; чужой пин → false; хост без пинов → true; retry: 2 повтора на 503, ноль на 451/429.
+- [x] Коммит `feat(data_market): SPKI pinning adapter and retry interceptor`.
 
 ### Task 3: Binance REST (`lib/src/binance`)
 
@@ -66,8 +66,8 @@
 - `BinanceRestClient(dio, queue)`: `ping()`, `ticker24h(List<String> symbols)`, `klines(symbol, Interval, limit)`.
 - `BinanceMarketDataSource(client, hosts, assets)`: `instrumentFor` → `BASEQUOTE`; стримы бросают `StateError` до дня 3.
 
-- [ ] Тесты: парсеры на фикстурах (Decimal-строки один в один); очередь с fake_async: 429 → пауза на Retry-After, 418 → отказ до конца бана, softLimit → ожидание до следующей минуты; клиент через fake `HttpClientAdapter`.
-- [ ] Коммит `feat(data_market): Binance REST source with weight-aware queue`.
+- [x] Тесты: парсеры на фикстурах (Decimal-строки один в один); очередь с fake_async: 429 → пауза на Retry-After, 418 → отказ до конца бана, softLimit → ожидание до следующей минуты; клиент через fake `HttpClientAdapter`.
+- [x] Коммит `feat(data_market): Binance REST source with weight-aware queue`.
 
 ### Task 4: CoinGecko (`lib/src/coingecko`)
 
@@ -78,8 +78,8 @@
 - `List<Candle> parseOhlc(List rows, Duration granularity)` — `openTime = ts − granularity`, `volume == null`.
 - `CoinGeckoMarketDataSource`: `quotes` батчем по всем id; `klines(_, Interval.auto)` → `days=1`; `quoteStream` — опрос раз в 60 с через `clock`; 429 → `QuotaExhausted`; `attribution == 'Powered by CoinGecko'`.
 
-- [ ] Тесты: парсеры; `quoteStream` с fake_async выдаёт котировки на 0 с и 60 с; 429 → `QuotaExhausted`.
-- [ ] Коммит `feat(data_market): CoinGecko fallback source`.
+- [x] Тесты: парсеры; `quoteStream` с fake_async выдаёт котировки на 0 с и 60 с; 429 → `QuotaExhausted`.
+- [x] Коммит `feat(data_market): CoinGecko fallback source`.
 
 ### Task 5: Region resolver (`lib/src/region`)
 
@@ -93,19 +93,19 @@
 - `RegionResolver(probe, candidates, cache, clock, retryDelay: 5 s, ttl: 24 h)`: `Future<Resolution> resolve({bool force})`; `Resolution(sourceId, reason: ResolutionReason {direct, regionBlocked, unavailable}, at)`.
 - `ResolutionCache` интерфейс + `InMemoryResolutionCache`.
 
-- [ ] Тесты (fake_async): 451 → следующий кандидат без ожидания; unavailable → повтор через 5 с, потом следующий; всё недоступно → CoinGecko с `reason.unavailable`; кэш в TTL не пробует; `force` пробует.
-- [ ] Коммит `feat(data_market): region resolver with 451 vs timeout semantics`.
+- [x] Тесты (fake_async): 451 → следующий кандидат без ожидания; unavailable → повтор через 5 с, потом следующий; всё недоступно → CoinGecko с `reason.unavailable`; кэш в TTL не пробует; `force` пробует.
+- [x] Коммит `feat(data_market): region resolver with 451 vs timeout semantics`.
 
 ### Task 6: Sentry-фильтр и логгер
 
 **Files:** `packages/core/lib/src/logger.dart`, `apps/mobile/lib/observability/sentry_filters.dart`, `apps/mobile/lib/main.dart`, `apps/mobile/test/sentry_filters_test.dart`
 
-- [ ] `core`: `abstract interface class Logger { debug/info/warn/error }`, `PrintLogger`, `NoopLogger`.
-- [ ] `sanitizeBreadcrumb(Breadcrumb)`: для URL с `api.anthropic.com` обрезает query и заголовки, удаляет `Authorization`/`x-api-key` из data; тест.
-- [ ] `main.dart`: `SentryFlutter.init` только если `SENTRY_DSN` непустой, `beforeBreadcrumb: sanitizeBreadcrumb`.
-- [ ] Коммит `feat(app): Sentry with breadcrumb sanitizer`.
+- [x] `core`: `abstract interface class Logger { debug/info/warn/error }`, `PrintLogger`, `NoopLogger`.
+- [x] `sanitizeBreadcrumb(Breadcrumb)`: для URL с `api.anthropic.com` обрезает query и заголовки, удаляет `Authorization`/`x-api-key` из data; тест.
+- [x] `main.dart`: `SentryFlutter.init` только если `SENTRY_DSN` непустой, `beforeBreadcrumb: sanitizeBreadcrumb`.
+- [x] Коммит `feat(app): Sentry with breadcrumb sanitizer`.
 
 ### Task 7: ADR, Codex-ревью, merge
 
-- [ ] `docs/decisions/0002-region-fallback-and-pinning.md`: цепочка источников, что дала проверка хостов binance.vision (08.09.2026: все три хоста отвечают 200 из региона разработчика, US-регион требует VPN — открытый пункт), компромисс pinning без бэкенда (только leaf-пины, ротация ломает до обновления).
+- [x] `docs/decisions/0002-region-fallback-and-pinning.md`: цепочка источников, что дала проверка хостов binance.vision (08.09.2026: все три хоста отвечают 200 из региона разработчика, US-регион требует VPN — открытый пункт), компромисс pinning без бэкенда (только leaf-пины, ротация ломает до обновления).
 - [ ] `codex exec` ревью, исправления, `melos run format/analyze/test`, merge `--no-ff` в `develop`, push.
