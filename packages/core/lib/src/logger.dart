@@ -33,7 +33,6 @@ final class PrintLogger implements Logger {
     if (error != null) buffer.write(' · $error');
     if (st != null) buffer.write('\n$st');
     final line = buffer.toString();
-    // ignore: avoid_print, this is the print sink by design
     (sink ?? print)(line);
   }
 
