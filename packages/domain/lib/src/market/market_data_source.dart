@@ -20,6 +20,10 @@ abstract interface class MarketDataSource {
 
   Capabilities get capabilities;
 
+  /// Quote currency the catalog is listed against: `USDT` on Binance,
+  /// `USD` on CoinGecko.
+  String get defaultQuote;
+
   /// The source's instrument for [asset] quoted in [quote], or null when the
   /// source does not list that pair (Binance US has fewer pairs).
   Instrument? instrumentFor(Asset asset, String quote);

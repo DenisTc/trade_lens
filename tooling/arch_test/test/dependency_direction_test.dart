@@ -13,6 +13,7 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/chart': {'core'},
   'packages/sdui': {'core'},
   'packages/ai_insights': {'core', 'domain'},
+  'packages/features/shared': {'core', 'domain'},
   'packages/features/markets': _featureDeps,
   'packages/features/portfolio': _featureDeps,
   'packages/features/insights': _featureDeps,
@@ -21,10 +22,17 @@ const allowedInternalDependencies = <String, Set<String>>{
   // apps/mobile is intentionally absent: it may depend on anything.
 };
 
-/// Features see interfaces (`domain`) and pure UI packages. Implementations
+/// Features see interfaces (`domain`), the shared interface providers
+/// (`features_shared`, ADR-0003) and pure UI packages. Implementations
 /// (`data_market`, `data_local`, `ws_client`, `ai_insights`) are wired in
 /// `apps/mobile` through Riverpod overrides, never imported by a feature.
-const _featureDeps = <String>{'core', 'domain', 'chart', 'sdui'};
+const _featureDeps = <String>{
+  'core',
+  'domain',
+  'features_shared',
+  'chart',
+  'sdui',
+};
 
 void main() {
   final root = findWorkspaceRoot();
@@ -73,7 +81,9 @@ void main() {
   });
 
   test('features do not depend on each other', () {
-    final features = packages.where((p) => p.name.startsWith('features_'));
+    final features = packages.where(
+      (p) => p.name.startsWith('features_') && p.name != 'features_shared',
+    );
     final featureNames = {for (final f in features) f.name};
     for (final pkg in features) {
       final crossFeature = internalDependencies(

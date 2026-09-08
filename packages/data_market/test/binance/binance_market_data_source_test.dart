@@ -160,14 +160,4 @@ void main() {
     );
     expect(klines.errorOrNull, isA<ParseFailure>());
   });
-
-  test('streams are not wired before ws_client lands', () {
-    final source = build(
-      FakeHttpAdapter((_, _) => const FakeResponse(200, '[]')),
-    );
-    expect(
-      () => source.tradeStream(source.instrumentFor(btc, 'USDT')!),
-      throwsUnimplementedError,
-    );
-  });
 }

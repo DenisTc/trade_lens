@@ -154,6 +154,53 @@ void main() {
     },
   );
 
+  test('several quote streams share one batched request per cycle', () {
+    fakeAsync((async) {
+      final adapter = FakeHttpAdapter(
+        (_, _) => FakeResponse(200, _fixture('simple_price.json')),
+      );
+      final source = build(adapter);
+      final instruments = source.instruments(
+        defaultAssets.take(2).toList(),
+        'USD',
+      );
+      final a = <Quote>[];
+      final b = <Quote>[];
+      final subA = source.quoteStream([instruments[0]]).listen(a.add);
+      final subB = source.quoteStream([instruments[1]]).listen(b.add);
+      async.elapse(const Duration(milliseconds: 1));
+
+      expect(
+        adapter.requests,
+        hasLength(1),
+        reason: 'one request for both rows',
+      );
+      expect(
+        adapter.requests.single.uri.queryParameters['ids'],
+        'bitcoin,ethereum',
+      );
+      expect(a.single.instrument.symbol, 'bitcoin');
+      expect(b.single.instrument.symbol, 'ethereum');
+
+      async.elapse(const Duration(seconds: 60));
+      expect(adapter.requests, hasLength(2));
+
+      subA.cancel();
+      async.elapse(const Duration(seconds: 60));
+      expect(adapter.requests, hasLength(3));
+      expect(adapter.requests.last.uri.queryParameters['ids'], 'ethereum');
+      expect(source.polledInstruments, {instruments[1]});
+
+      subB.cancel();
+      async.elapse(const Duration(minutes: 5));
+      expect(
+        adapter.requests,
+        hasLength(3),
+        reason: 'polling stops with the last listener',
+      );
+    });
+  });
+
   test('quoteStream forwards errors and keeps polling', () {
     fakeAsync((async) {
       final adapter = FakeHttpAdapter(
