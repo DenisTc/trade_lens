@@ -7,7 +7,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 import 'package:ws_client/ws_client.dart';
 
-import 'support/fake_transport.dart';
+import 'package:ws_client/testing.dart';
 
 void main() {
   group('SubscriptionRegistry', () {

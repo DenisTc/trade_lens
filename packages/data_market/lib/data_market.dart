@@ -7,6 +7,7 @@ export 'src/binance/binance_market_data_source.dart';
 export 'src/binance/binance_parsers.dart';
 export 'src/binance/binance_request_queue.dart';
 export 'src/binance/binance_rest_client.dart';
+export 'src/binance/binance_streams.dart';
 export 'src/coingecko/coingecko_ids.dart';
 export 'src/coingecko/coingecko_market_data_source.dart';
 export 'src/coingecko/coingecko_parsers.dart';

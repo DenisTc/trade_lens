@@ -1,24 +1,36 @@
+import 'dart:async';
+
+import 'package:clock/clock.dart';
 import 'package:core/core.dart';
 import 'package:data_market/src/binance/binance_hosts.dart';
 import 'package:data_market/src/binance/binance_parsers.dart';
 import 'package:data_market/src/binance/binance_request_queue.dart';
 import 'package:data_market/src/binance/binance_rest_client.dart';
+import 'package:data_market/src/binance/binance_streams.dart';
 import 'package:data_market/src/errors.dart';
 import 'package:dio/dio.dart';
 import 'package:domain/domain.dart';
+import 'package:ws_client/ws_client.dart';
 
-/// REST half of the Binance source. Streams are wired in with `ws_client`
-/// (day 3); until then they throw so a missing wire-up fails loudly.
+/// Binance over REST (history, batch quotes) and one shared [WsClient]
+/// (live quotes, candles, top-10 book, trades). Works for Global, the
+/// market-data host and Binance.US alike; only [BinanceHosts] differ.
 final class BinanceMarketDataSource implements MarketDataSource {
   BinanceMarketDataSource({
     required this._client,
     required this._hosts,
+    this._ws,
     this.defaultQuote = 'USDT',
     this._listedSymbols,
-  });
+    this._logger = const NoopLogger(),
+    Clock? clock,
+  }) : _clock = clock ?? const Clock();
 
   final BinanceRestClient _client;
   final BinanceHosts _hosts;
+  final WsClient? _ws;
+  final Logger _logger;
+  final Clock _clock;
 
   /// Quote currency this deployment lists the catalog against.
   final String defaultQuote;
@@ -48,6 +60,8 @@ final class BinanceMarketDataSource implements MarketDataSource {
   List<Instrument> instruments(List<Asset> assets, String quote) => [
     for (final asset in assets) ?instrumentFor(asset, quote),
   ];
+
+  // ------------------------------------------------------------------ REST
 
   @override
   Future<Result<List<Quote>, MarketError>> quotes(
@@ -111,21 +125,145 @@ final class BinanceMarketDataSource implements MarketDataSource {
     }
   }
 
-  @override
-  Stream<Quote> quoteStream(List<Instrument> instruments) => _notWiredYet();
+  // --------------------------------------------------------------- streams
 
+  WsClient get _socket =>
+      _ws ??
+      (throw StateError(
+        'BinanceMarketDataSource($id) was built without a WsClient',
+      ));
+
+  /// One miniTicker subscription per instrument, merged. The registry in
+  /// `ws_client` dedupes symbols shared with other screens.
   @override
-  Stream<Candle> klineStream(Instrument instrument, Interval interval) =>
-      _notWiredYet();
+  Stream<Quote> quoteStream(List<Instrument> instruments) {
+    final ws = _socket;
+    return _merge([
+      for (final instrument in instruments)
+        _mapFrames(
+          ws.subscribe(miniTickerStreamName(instrument.symbol)),
+          (data) => parseMiniTicker(data, instrument),
+        ),
+    ]);
+  }
+
+  /// Live candles plus a REST backfill after every reconnect, from the last
+  /// candle we saw. A candle with an already-seen `openTime` is an update,
+  /// which is how the chart treats it.
+  @override
+  Stream<Candle> klineStream(Instrument instrument, Interval interval) {
+    if (interval.duration == null) {
+      throw ArgumentError.value(interval, 'interval', 'fixed interval only');
+    }
+    final ws = _socket;
+    late StreamController<Candle> controller;
+    StreamSubscription<WsMessage>? frames;
+    StreamSubscription<WsConnectionState>? states;
+    DateTime? lastOpenTime;
+    var reconnecting = false;
+
+    Future<void> backfill() async {
+      final since = lastOpenTime;
+      if (since == null) return;
+      _logger.info(
+        'backfilling ${instrument.symbol} ${interval.code} from $since',
+      );
+      final result = await klines(instrument, interval, startTime: since);
+      if (controller.isClosed) return;
+      result.when(
+        ok: (candles) => candles.forEach(controller.add),
+        err: controller.addError,
+      );
+    }
+
+    controller = StreamController<Candle>(
+      onListen: () {
+        frames = ws
+            .subscribe(klineStreamName(instrument.symbol, interval))
+            .listen((message) {
+              final k = message.data['k'];
+              if (k is! Map<String, Object?>) return;
+              try {
+                final candle = parseKlineEvent(k);
+                lastOpenTime = candle.openTime;
+                controller.add(candle);
+              } on FormatException catch (e) {
+                controller.addError(
+                  MarketError.parse(sourceId: id, message: e.message),
+                );
+              }
+            }, onError: controller.addError);
+        states = ws.states.listen((state) {
+          if (state == WsConnectionState.reconnecting) reconnecting = true;
+          if (state == WsConnectionState.connected && reconnecting) {
+            reconnecting = false;
+            unawaited(backfill());
+          }
+        });
+      },
+      onCancel: () {
+        unawaited(frames?.cancel());
+        unawaited(states?.cancel());
+      },
+    );
+    return controller.stream;
+  }
 
   @override
   Stream<OrderBookSnapshot> orderBookStream(Instrument instrument) =>
-      _notWiredYet();
+      _mapFrames(
+        _socket.subscribe(depth10StreamName(instrument.symbol)),
+        (data) => parseDepth10(data, instrument, at: _clock.now().toUtc()),
+      );
 
   @override
-  Stream<Trade> tradeStream(Instrument instrument) => _notWiredYet();
-
-  Never _notWiredYet() => throw UnimplementedError(
-    'Binance streams are wired through ws_client (day 3 of the plan)',
+  Stream<Trade> tradeStream(Instrument instrument) => _mapFrames(
+    _socket.subscribe(tradeStreamName(instrument.symbol)),
+    (data) => parseTradeEvent(data, instrument),
   );
+
+  Stream<T> _mapFrames<T>(
+    Stream<WsMessage> frames,
+    T Function(Map<String, Object?> data) parse,
+  ) {
+    return frames.map((message) {
+      try {
+        return parse(message.data);
+      } on FormatException catch (e) {
+        throw MarketError.parse(sourceId: id, message: e.message);
+      }
+    });
+  }
+
+  /// Merges single-subscription streams; cancelling the result cancels all.
+  Stream<T> _merge<T>(List<Stream<T>> sources) {
+    if (sources.length == 1) return sources.single;
+    late StreamController<T> controller;
+    final subscriptions = <StreamSubscription<T>>[];
+    controller = StreamController<T>(
+      onListen: () {
+        for (final source in sources) {
+          subscriptions.add(
+            source.listen(controller.add, onError: controller.addError),
+          );
+        }
+      },
+      onPause: () {
+        for (final s in subscriptions) {
+          s.pause();
+        }
+      },
+      onResume: () {
+        for (final s in subscriptions) {
+          s.resume();
+        }
+      },
+      onCancel: () {
+        for (final s in subscriptions) {
+          unawaited(s.cancel());
+        }
+      },
+    );
+    return controller.stream;
+  }
 }

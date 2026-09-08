@@ -2,11 +2,13 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'market_error.freezed.dart';
 
-/// Failures a source can report. The two network cases are deliberately
+/// Failures a source can report. Implements [Exception] so streams can
+/// surface it through `addError` without wrapping.
+/// The two network cases are deliberately
 /// distinct: a confirmed geo-block (HTTP 451) moves to the next source,
 /// while a timeout or 5xx is retried first (spec, "Гео-ограничения").
 @freezed
-sealed class MarketError with _$MarketError {
+sealed class MarketError with _$MarketError implements Exception {
   /// HTTP 451: the source confirmed it does not serve this region.
   const factory MarketError.regionBlocked({required String sourceId}) =
       RegionBlocked;
