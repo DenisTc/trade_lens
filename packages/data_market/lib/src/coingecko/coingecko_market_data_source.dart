@@ -135,8 +135,9 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
         timer = Timer.periodic(pollInterval, (_) => unawaited(poll()));
       },
       onCancel: () {
+        // Do not return `close()`: its future waits for this very cancel.
         timer?.cancel();
-        return controller.close();
+        unawaited(controller.close());
       },
     );
     return controller.stream;

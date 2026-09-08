@@ -136,6 +136,24 @@ void main() {
     });
   });
 
+  test(
+    'cancelling the quote stream completes (no close/onCancel loop)',
+    () async {
+      // Real time on purpose: cancel() returns a root-zone future that a fake
+      // clock never drives, and the bug this guards against is a real hang.
+      final adapter = FakeHttpAdapter(
+        (_, _) => FakeResponse(200, _fixture('simple_price.json')),
+      );
+      final source = build(adapter);
+      final sub = source
+          .quoteStream(source.instruments([btc], 'USD'))
+          .listen((_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      await sub.cancel().timeout(const Duration(seconds: 2));
+    },
+  );
+
   test('quoteStream forwards errors and keeps polling', () {
     fakeAsync((async) {
       final adapter = FakeHttpAdapter(

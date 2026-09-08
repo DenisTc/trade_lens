@@ -97,7 +97,31 @@ final class RegionResolver {
   final Clock _clock;
   final Future<void> Function(Duration) _sleep;
 
-  Future<Resolution> resolve({bool force = false}) async {
+  Future<Resolution>? _inFlight;
+  int _generation = 0;
+
+  /// Concurrent plain calls share one probe run. A `force` call starts a
+  /// new generation: an older run still in progress finishes but its
+  /// result is not written to the cache, so a slow probe from the previous
+  /// network cannot overwrite a fresher answer.
+  Future<Resolution> resolve({bool force = false}) {
+    if (!force) {
+      final running = _inFlight;
+      if (running != null) return running;
+    }
+    final generation = ++_generation;
+    late final Future<Resolution> run;
+    run = _resolve(force: force, generation: generation).whenComplete(() {
+      if (identical(_inFlight, run)) _inFlight = null;
+    });
+    _inFlight = run;
+    return run;
+  }
+
+  Future<Resolution> _resolve({
+    required bool force,
+    required int generation,
+  }) async {
     if (!force) {
       final cached = await cache.read();
       if (cached != null && cached.isFresh(_clock.now(), ttl)) return cached;
@@ -116,6 +140,7 @@ final class RegionResolver {
       switch (outcome) {
         case ProbeOutcome.ok:
           return await _commit(
+            generation,
             Resolution(
               candidateId: candidate.id,
               sourceId: candidate.sourceId,
@@ -135,6 +160,7 @@ final class RegionResolver {
       }
     }
     return await _commit(
+      generation,
       Resolution(
         candidateId: fallback.id,
         sourceId: fallback.sourceId,
@@ -147,7 +173,11 @@ final class RegionResolver {
     );
   }
 
-  Future<Resolution> _commit(Resolution resolution) async {
+  Future<Resolution> _commit(int generation, Resolution resolution) async {
+    if (generation != _generation) {
+      logger.info('stale $resolution dropped (newer probe in flight)');
+      return resolution;
+    }
     logger.info('resolved $resolution');
     await cache.write(resolution);
     return resolution;

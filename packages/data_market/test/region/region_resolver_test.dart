@@ -194,6 +194,65 @@ void main() {
     });
   });
 
+  test('concurrent plain calls share one probe run', () {
+    fakeAsync((async) {
+      final probe = ScriptedProbe({
+        'binance_global': [ProbeOutcome.ok],
+      });
+      final resolver = build(probe, sleeps: [], async: async);
+      final a = resolver.resolve();
+      final b = resolver.resolve();
+      expect(identical(a, b), isTrue);
+      async.flushMicrotasks();
+      expect(probe.calls, hasLength(1));
+    });
+  });
+
+  test('a forced re-probe wins over a slower earlier run', () {
+    fakeAsync((async) {
+      // First run: global unavailable → retry after 5 s → still unavailable,
+      // then vision ok. Forced run (started during the sleep): global ok.
+      final probe = ScriptedProbe({
+        'binance_global': [
+          ProbeOutcome.unavailable,
+          ProbeOutcome.ok,
+          ProbeOutcome.unavailable,
+        ],
+        'binance_vision': [ProbeOutcome.ok],
+      });
+      final cache = InMemoryResolutionCache();
+      final sleeps = <Duration>[];
+      final resolver = RegionResolver(
+        probe: probe,
+        candidates: [global, vision, us],
+        fallback: gecko,
+        cache: cache,
+        clock: Clock(() => start.add(async.elapsed)),
+        sleep: (d) async {
+          sleeps.add(d);
+          await Future<void>.delayed(d);
+        },
+      );
+      Resolution? slow;
+      Resolution? forced;
+      resolver.resolve().then((r) => slow = r);
+      async.flushMicrotasks();
+      resolver.resolve(force: true).then((r) => forced = r);
+      async.elapse(const Duration(seconds: 10));
+
+      expect(forced!.candidateId, 'binance_global');
+      expect(slow!.candidateId, 'binance_vision');
+      Resolution? cached;
+      cache.read().then((r) => cached = r);
+      async.flushMicrotasks();
+      expect(
+        cached,
+        forced,
+        reason: 'the stale run must not overwrite the cache',
+      );
+    });
+  });
+
   test('default chain ends with CoinGecko and probes one miniTicker', () {
     final chain = defaultCandidates();
     expect(chain.map((c) => c.id), [

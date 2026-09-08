@@ -108,4 +108,4 @@
 ### Task 7: ADR, Codex-ревью, merge
 
 - [x] `docs/decisions/0002-region-fallback-and-pinning.md`: цепочка источников, что дала проверка хостов binance.vision (08.09.2026: все три хоста отвечают 200 из региона разработчика, US-регион требует VPN — открытый пункт), компромисс pinning без бэкенда (только leaf-пины, ротация ломает до обновления).
-- [ ] `codex exec` ревью, исправления, `melos run format/analyze/test`, merge `--no-ff` в `develop`, push.
+- [x] `codex exec` ревью, исправления, `melos run format/analyze/test`, merge `--no-ff` в `develop`, push.

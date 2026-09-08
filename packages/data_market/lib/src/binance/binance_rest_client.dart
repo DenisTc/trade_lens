@@ -19,7 +19,7 @@ final class BinanceRestClient {
 
   /// `GET /ticker/24hr?symbols=[...]` — weight 2 for up to 20 symbols,
   /// 40 up to 100.
-  Future<List<Map<String, Object?>>> ticker24h(List<String> symbols) async {
+  Future<List<Object?>> ticker24h(List<String> symbols) async {
     final weight = symbols.length <= 20 ? 2 : 40;
     final response = await _queue.run(
       weight,
@@ -28,11 +28,11 @@ final class BinanceRestClient {
         queryParameters: {'symbols': jsonEncode(symbols)},
       ),
     );
-    return (response.data ?? const []).cast<Map<String, Object?>>();
+    return response.data ?? const [];
   }
 
   /// `GET /klines?symbol&interval&limit` — weight 2.
-  Future<List<List<Object?>>> klines(
+  Future<List<Object?>> klines(
     String symbol,
     Interval interval, {
     int limit = 500,
@@ -51,6 +51,6 @@ final class BinanceRestClient {
         },
       ),
     );
-    return (response.data ?? const []).cast<List<Object?>>();
+    return response.data ?? const [];
   }
 }

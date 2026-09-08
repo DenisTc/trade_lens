@@ -2,7 +2,7 @@
 //
 //   dart run tool/probe_sources.dart
 //
-// Prints every probe outcome and the resolver's decision (fresh in-memory cache). Run it from a
+// Prints every probe outcome and the resolver's decision. Run it from a
 // US VPN before release to record the region-fallback behaviour in the
 // README (spec, "Критерии готовности"). Not a test: it touches the network.
 import 'dart:io';
@@ -24,7 +24,7 @@ Future<void> main() async {
   );
   final resolution = await resolver.resolve();
   stdout
-    ..writeln('')
+    ..writeln()
     ..writeln('source:    ${resolution.sourceId} (${resolution.candidateId})')
     ..writeln('reason:    ${resolution.reason.name}')
     ..writeln('outcomes:  ${resolution.outcomes}');

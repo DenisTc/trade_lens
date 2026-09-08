@@ -130,7 +130,8 @@ void main() {
           isTrue,
         ),
       );
-      expect(queue.bannedUntil, start.add(const Duration(seconds: 120)));
+      expect(queue.pausedUntil, start.add(const Duration(seconds: 120)));
+      expect(queue.isBanned, isTrue);
 
       var called = false;
       Object? second;
@@ -162,6 +163,101 @@ void main() {
       });
       async.flushMicrotasks();
       expect(calledAfter, isTrue);
+    });
+  });
+
+  test('a second 429 pauses the queue for Retry-After', () {
+    fakeAsync((async) {
+      final sleeps = <Duration>[];
+      final queue = BinanceRequestQueue(
+        clock: Clock(() => start.add(async.elapsed)),
+        sleep: (d) async => sleeps.add(d),
+      );
+      Object? first;
+      queue
+          .run<String>(1, () async => throw _status(429, retryAfter: 9))
+          .catchError((Object e) {
+            first = e;
+            return _ok();
+          });
+      async.flushMicrotasks();
+      expect(sleeps, [const Duration(seconds: 9)], reason: 'one wait');
+      expect(
+        first,
+        isA<BinanceRateLimitException>().having(
+          (e) => e.banned,
+          'banned',
+          isFalse,
+        ),
+      );
+
+      var called = false;
+      Object? second;
+      queue
+          .run<String>(1, () async {
+            called = true;
+            return _ok();
+          })
+          .catchError((Object e) {
+            second = e;
+            return _ok();
+          });
+      async.flushMicrotasks();
+      expect(called, isFalse, reason: 'queue paused until Retry-After');
+      expect(second, isA<BinanceRateLimitException>());
+      expect(queue.isBanned, isFalse);
+
+      async.elapse(const Duration(seconds: 10));
+      var resumed = false;
+      queue.run<String>(1, () async {
+        resumed = true;
+        return _ok();
+      });
+      async.flushMicrotasks();
+      expect(resumed, isTrue);
+    });
+  });
+
+  test('minute window is computed in UTC even for a local clock', () {
+    fakeAsync((async) {
+      final local = DateTime(2026, 9, 8, 12, 0, 30); // local time zone
+      final sleeps = <Duration>[];
+      final queue = BinanceRequestQueue(
+        softLimit: 100,
+        clock: Clock(() => local.add(async.elapsed)),
+        sleep: (d) async {
+          sleeps.add(d);
+          async.elapse(d);
+        },
+      )..run(1, () async => _ok(usedWeight: 99));
+      async.flushMicrotasks();
+      queue.run(5, () async => _ok(usedWeight: 5));
+      async.flushMicrotasks();
+      expect(sleeps, [const Duration(seconds: 30)]);
+    });
+  });
+
+  test('declared weight accumulates locally without a server header', () {
+    fakeAsync((async) {
+      final queue = BinanceRequestQueue()
+        ..run(
+          2,
+          () async => Response(
+            requestOptions: RequestOptions(path: 'x'),
+            statusCode: 200,
+            data: 'ok',
+          ),
+        )
+        ..run(
+          3,
+          () async => Response(
+            requestOptions: RequestOptions(path: 'x'),
+            statusCode: 200,
+            data: 'ok',
+          ),
+        );
+      async.flushMicrotasks();
+      expect(queue.usedWeight, 5);
     });
   });
 

@@ -148,6 +148,19 @@ void main() {
     expect(result.errorOrNull, isA<ParseFailure>());
   });
 
+  test('[null] payload is a ParseFailure, not a TypeError', () async {
+    final source = build(
+      FakeHttpAdapter((_, _) => const FakeResponse(200, '[null]')),
+    );
+    final quotes = await source.quotes(source.instruments([btc], 'USDT'));
+    expect(quotes.errorOrNull, isA<ParseFailure>());
+    final klines = await source.klines(
+      source.instrumentFor(btc, 'USDT')!,
+      Interval.m1,
+    );
+    expect(klines.errorOrNull, isA<ParseFailure>());
+  });
+
   test('streams are not wired before ws_client lands', () {
     final source = build(
       FakeHttpAdapter((_, _) => const FakeResponse(200, '[]')),

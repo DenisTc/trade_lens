@@ -59,6 +59,9 @@ final class BinanceMarketDataSource implements MarketDataSource {
       final rows = await _client.ticker24h(bySymbol.keys.toList());
       final quotes = <Quote>[];
       for (final row in rows) {
+        if (row is! Map<String, Object?>) {
+          throw FormatException('ticker element is not an object: $row');
+        }
         final instrument = bySymbol[row['symbol']];
         if (instrument == null) continue;
         quotes.add(parseTicker24h(row, instrument));

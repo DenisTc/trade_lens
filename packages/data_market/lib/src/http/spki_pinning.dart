@@ -40,33 +40,44 @@ String spkiSha256(Uint8List certificateDer) {
 /// Certificate ::= SEQUENCE {
 ///   tbsCertificate SEQUENCE {
 ///     [0] version OPTIONAL, serialNumber, signature, issuer,
-///     validity, subject, subjectPublicKeyInfo, ...
+///     validity, subject,
+///     subjectPublicKeyInfo SEQUENCE { algorithm SEQUENCE, key BIT STRING },
+///     ...
 ///   }, ...
 /// }
 /// ```
+///
+/// Every element is read within the bounds of its parent, and the SPKI
+/// itself must have the algorithm/key shape, so a truncated or hand-crafted
+/// buffer is rejected instead of hashing garbage.
 Uint8List extractSpki(Uint8List der) {
-  final certificate = _Tlv.read(der, 0);
+  final certificate = _Tlv.read(der, 0, der.length);
   if (certificate.tag != _sequence) {
     throw const FormatException('certificate is not a SEQUENCE');
   }
-  final tbs = _Tlv.read(der, certificate.valueStart);
+  final tbs = _Tlv.read(der, certificate.valueStart, certificate.end);
   if (tbs.tag != _sequence) {
     throw const FormatException('tbsCertificate is not a SEQUENCE');
   }
 
-  var offset = tbs.valueStart;
-  var element = _Tlv.read(der, offset);
+  var element = _Tlv.read(der, tbs.valueStart, tbs.end);
   if (element.tag == _explicitVersion) {
-    offset = element.end;
-    element = _Tlv.read(der, offset);
+    element = _Tlv.read(der, element.end, tbs.end);
   }
   // serialNumber, signature, issuer, validity, subject
   for (var i = 0; i < 5; i++) {
-    offset = element.end;
-    element = _Tlv.read(der, offset);
+    element = _Tlv.read(der, element.end, tbs.end);
   }
   if (element.tag != _sequence) {
     throw const FormatException('subjectPublicKeyInfo is not a SEQUENCE');
+  }
+  final algorithm = _Tlv.read(der, element.valueStart, element.end);
+  if (algorithm.tag != _sequence) {
+    throw const FormatException('SPKI algorithm is not a SEQUENCE');
+  }
+  final key = _Tlv.read(der, algorithm.end, element.end);
+  if (key.tag != _bitString || key.end != element.end) {
+    throw const FormatException('SPKI key is not a trailing BIT STRING');
   }
   return Uint8List.sublistView(der, element.start, element.end);
 }
@@ -89,6 +100,7 @@ bool validatePinnedCertificate(
 }
 
 const _sequence = 0x30;
+const _bitString = 0x03;
 const _explicitVersion = 0xA0;
 
 final class _Tlv {
@@ -104,9 +116,10 @@ final class _Tlv {
   final int valueStart;
   final int end;
 
+  /// Reads the element at [start]; it must end at or before [limit].
   // ignore: prefer_constructors_over_static_methods, reads from a buffer
-  static _Tlv read(Uint8List bytes, int start) {
-    if (start + 2 > bytes.length) {
+  static _Tlv read(Uint8List bytes, int start, int limit) {
+    if (limit > bytes.length || start + 2 > limit) {
       throw const FormatException('truncated DER element');
     }
     final tag = bytes[start];
@@ -119,15 +132,15 @@ final class _Tlv {
       }
       length = 0;
       for (var i = 0; i < lengthBytes; i++) {
-        if (cursor >= bytes.length) {
+        if (cursor >= limit) {
           throw const FormatException('truncated DER length');
         }
         length = (length << 8) | bytes[cursor++];
       }
     }
     final end = cursor + length;
-    if (end > bytes.length) {
-      throw const FormatException('DER element exceeds buffer');
+    if (end > limit) {
+      throw const FormatException('DER element exceeds its parent');
     }
     return _Tlv(tag: tag, start: start, valueStart: cursor, end: end);
   }
