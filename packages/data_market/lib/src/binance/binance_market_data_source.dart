@@ -33,6 +33,7 @@ final class BinanceMarketDataSource implements MarketDataSource {
   final Clock _clock;
 
   /// Quote currency this deployment lists the catalog against.
+  @override
   final String defaultQuote;
 
   /// When non-null only these symbols exist on the deployment

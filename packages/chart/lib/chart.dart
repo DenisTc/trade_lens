@@ -1,2 +1,5 @@
-/// TradeLens · chart. Populated in later iterations, see docs/superpowers/plans.
+/// TradeLens · chart widgets on `CustomPainter`, no feature dependencies
+/// (future pub.dev package). Day 4 adds the candlestick engine.
 library;
+
+export 'src/sparkline.dart';

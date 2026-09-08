@@ -1,6 +1,6 @@
 # TradeLens · День 3: сокет и список пар Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Пакет `ws_client` с реестром подписок, батчингом команд, реконнектом и детектом тишины; стримы Binance (miniTicker, kline, стакан top-10 снапшотом, лента); список пар на Riverpod 3 с family-провайдерами по инструменту.
 
@@ -37,8 +37,8 @@
 - `WsMessage(stream, data)`; `enum WsConnectionState { idle, connecting, connected, reconnecting, suspended }`.
 - `Stream<List<T>> coalesce<T>(Stream<T>, Duration window)`: собирает события за окно (16 мс) в один список.
 
-- [ ] Тесты (fake_async, FakeTransport с ручным управлением): первый слушатель открывает соединение и шлёт один SUBSCRIBE с двумя стримами, добавленными в пределах 250 мс; второй слушатель того же стрима не шлёт команду; отписка последнего шлёт UNSUBSCRIBE через 2 с, а повторная подписка в это окно отменяет её; ограничитель пропускает 4 команды в секунду; обрыв соединения → реконнект через 1, 2, 4 с (Random зафиксирован), после успеха SUBSCRIBE со всеми стримами реестра; тишина 60 с → пересоздание; heartbeat всегда в подписках, пока есть хотя бы один слушатель; `suspend` закрывает без реконнекта, `resume` открывает; сообщения доставляются по имени стрима.
-- [ ] Коммит `feat(ws_client): connection with registry, batching, reconnect and silence detection`.
+- [x] Тесты (fake_async, FakeTransport с ручным управлением): первый слушатель открывает соединение и шлёт один SUBSCRIBE с двумя стримами, добавленными в пределах 250 мс; второй слушатель того же стрима не шлёт команду; отписка последнего шлёт UNSUBSCRIBE через 2 с, а повторная подписка в это окно отменяет её; ограничитель пропускает 4 команды в секунду; обрыв соединения → реконнект через 1, 2, 4 с (Random зафиксирован), после успеха SUBSCRIBE со всеми стримами реестра; тишина 60 с → пересоздание; heartbeat всегда в подписках, пока есть хотя бы один слушатель; `suspend` закрывает без реконнекта, `resume` открывает; сообщения доставляются по имени стрима.
+- [x] Коммит `feat(ws_client): connection with registry, batching, reconnect and silence detection`.
 
 ### Task 2: Binance-стримы в `data_market`
 
@@ -50,8 +50,8 @@
 - `OrderBookSnapshot parseDepth10(Map data, Instrument, DateTime at)`, `Trade parseTradeEvent(Map data, Instrument)`.
 - `BinanceMarketDataSource({..., WsClient? ws, BinanceRestClient client})`: `quoteStream` объединяет miniTicker-подписки инструментов; `klineStream` слушает `@kline_<iv>` и после каждого повторного `connected` дозапрашивает REST `klines(startTime: lastOpenTime)` и эмитит добор перед живыми свечами; `orderBookStream`, `tradeStream`.
 
-- [ ] Тесты: парсеры на фикстурах; квота-стрим для 2 инструментов открывает 2 подписки; добор после реконнекта вызывает REST с `startTime` последней свечи и эмитит недостающие.
-- [ ] Коммит `feat(data_market): Binance streams over ws_client with kline backfill`.
+- [x] Тесты: парсеры на фикстурах; квота-стрим для 2 инструментов открывает 2 подписки; добор после реконнекта вызывает REST с `startTime` последней свечи и эмитит недостающие.
+- [x] Коммит `feat(data_market): Binance streams over ws_client with kline backfill`.
 
 ### Task 3: `features/shared` и ADR-0003
 
@@ -66,19 +66,19 @@
 - `@Riverpod(keepAlive: true) Stream<WsConnectionState> connectionState(Ref)` — переопределяется приложением, по умолчанию `idle`.
 - Виджеты: `DataSourceBadge`, `AsyncValueView<T>` с тремя состояниями явно.
 
-- [ ] Тест (спека): фейковый источник со счётчиком слушателей; два `ProviderContainer.listen` на один `quoteProvider(instrument)`; после отмены первого счётчик не меняется, после отмены второго и autoDispose падает до нуля.
-- [ ] Обновить `dependency_direction_test`: features → `features_shared` разрешён, `features_shared` не считается «соседней фичей».
-- [ ] Коммит `feat(features_shared): interface providers, ADR-0003`.
+- [x] Тест (спека): фейковый источник со счётчиком слушателей; два `ProviderContainer.listen` на один `quoteProvider(instrument)`; после отмены первого счётчик не меняется, после отмены второго и autoDispose падает до нуля.
+- [x] Обновить `dependency_direction_test`: features → `features_shared` разрешён, `features_shared` не считается «соседней фичей».
+- [x] Коммит `feat(features_shared): interface providers, ADR-0003`.
 
 ### Task 4: `features/markets` и приложение
 
 **Files:** `packages/features/markets/lib/src/markets_screen.dart`, `pair_tile.dart`, `markets_search.dart`; `packages/chart/lib/src/sparkline.dart`; `apps/mobile/lib/di/market_di.dart` (сборка `WsClient`, `HttpSourceProbe`, `RegionResolver`, источников; override провайдеров), `apps/mobile/lib/app.dart`, `router.dart`; tests.
 
-- [ ] `MarketsScreen`: поиск по названию/символу, список `PairTile` (цена, изменение 24 ч цветом, спарклайн 60 тиков, три состояния AsyncValue), `DataSourceBadge` внизу, точка состояния соединения в шапке.
-- [ ] `Sparkline(values: List<double>)` в `chart` — CustomPainter без зависимостей.
-- [ ] Приложение: `marketOverrides()` возвращает overrides; `marketDataSource` = resolver → Binance (Global / vision / US хосты) с `WsClient` либо CoinGecko. Lifecycle: `AppLifecycleListener` → `suspend()` через 30 с в фоне, `resume()` при возврате.
-- [ ] Тесты: widget-тест списка с фейковым источником (три состояния, поиск), тест приложения с overrides.
-- [ ] Коммит `feat(markets): live pair list on Riverpod`.
+- [x] `MarketsScreen`: поиск по названию/символу, список `PairTile` (цена, изменение 24 ч цветом, спарклайн 60 тиков, три состояния AsyncValue), `DataSourceBadge` внизу, точка состояния соединения в шапке.
+- [x] `Sparkline(values: List<double>)` в `chart` — CustomPainter без зависимостей.
+- [x] Приложение: `marketOverrides()` возвращает overrides; `marketDataSource` = resolver → Binance (Global / vision / US хосты) с `WsClient` либо CoinGecko. Lifecycle: `AppLifecycleListener` → `suspend()` через 30 с в фоне, `resume()` при возврате.
+- [x] Тесты: widget-тест списка с фейковым источником (три состояния, поиск), тест приложения с overrides.
+- [x] Коммит `feat(markets): live pair list on Riverpod`.
 
 ### Task 5: Codex-ревью, merge
 

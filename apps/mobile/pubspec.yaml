@@ -10,11 +10,13 @@ environment:
 
 dependencies:
   core:
+  data_market:
   domain:
   features_insights:
   features_markets:
   features_portfolio:
   features_settings:
+  features_shared:
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -23,6 +25,7 @@ dependencies:
   go_router: ^18.0.1
   riverpod_annotation: ^4.0.7
   sentry_flutter: ^9.29.0
+  ws_client:
 
 dev_dependencies:
   build_runner: ^2.16.1

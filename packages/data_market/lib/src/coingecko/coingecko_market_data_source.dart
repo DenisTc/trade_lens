@@ -39,6 +39,9 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
   Capabilities get capabilities => Capabilities.pricesOnly;
 
   @override
+  String get defaultQuote => vsCurrency.toUpperCase();
+
+  @override
   Instrument? instrumentFor(Asset asset, String quote) {
     final geckoId = coinGeckoIdFor(asset);
     if (geckoId == null || quote.toLowerCase() != vsCurrency) return null;

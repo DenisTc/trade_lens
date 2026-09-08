@@ -5,9 +5,8 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
-import 'package:ws_client/ws_client.dart';
-
 import 'package:ws_client/testing.dart';
+import 'package:ws_client/ws_client.dart';
 
 void main() {
   group('SubscriptionRegistry', () {

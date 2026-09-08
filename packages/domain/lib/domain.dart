@@ -6,6 +6,7 @@ library;
 export 'src/market/asset.dart';
 export 'src/market/candle.dart';
 export 'src/market/capabilities.dart';
+export 'src/market/connection_status.dart';
 export 'src/market/default_assets.dart';
 export 'src/market/instrument.dart';
 export 'src/market/interval.dart';
