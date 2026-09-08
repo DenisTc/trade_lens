@@ -14,6 +14,9 @@ Dio createDio({
   Duration timeout = const Duration(seconds: 10),
   Map<String, String> headers = const {},
   HttpClientAdapter? adapter,
+
+  /// Transient-failure retries; 0 for probes that own their own retry.
+  int retries = 2,
 }) {
   final dio = Dio(
     BaseOptions(
@@ -33,6 +36,8 @@ Dio createDio({
               : (certificate, host, port) =>
                     validatePinnedCertificate(pins, certificate, host),
         )
-    ..interceptors.add(RetryInterceptor(dio: dio, logger: logger));
+    ..interceptors.add(
+      RetryInterceptor(dio: dio, logger: logger, maxRetries: retries),
+    );
   return dio;
 }
