@@ -1,0 +1,35 @@
+name: tradelens_workspace
+publish_to: none
+environment:
+  sdk: ^3.13.0
+workspace:
+  - packages/core
+  - packages/domain
+  - packages/data_market
+  - packages/data_local
+  - packages/ws_client
+  - packages/chart
+  - packages/sdui
+  - packages/ai_insights
+  - packages/features/markets
+  - packages/features/portfolio
+  - packages/features/insights
+  - packages/features/settings
+  - apps/mobile
+  - tooling/arch_test
+dev_dependencies:
+  melos: ^8.6.0
+melos:
+  scripts:
+    generate:
+      description: Run build_runner in every package that depends on it.
+      run: melos exec -c 1 --depends-on build_runner -- dart run build_runner build --delete-conflicting-outputs
+    analyze:
+      description: Static analysis, infos are fatal.
+      run: melos exec -- dart analyze --fatal-infos .
+    format:
+      description: Formatting check for the whole workspace.
+      run: dart format --set-exit-if-changed .
+    test:
+      description: Run tests with coverage in every package that has a test dir.
+      run: melos exec --dir-exists test -- flutter test --coverage
