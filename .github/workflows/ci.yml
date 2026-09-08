@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PUB_CACHE: ${{ github.workspace }}/.pub-cache
+
+jobs:
+  build:
+    name: analyze · test · apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Flutter version from .fvmrc
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PUB_CACHE }}
+          key: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-
+
+      - name: Bootstrap workspace
+        run: |
+          dart pub global activate melos
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
+
+      - name: Generate code
+        run: melos run generate
+
+      - name: Format check
+        run: melos run format
+
+      - name: Analyze
+        run: melos run analyze
+
+      - name: Test with coverage
+        run: melos run test
+
+      - name: Build debug APK
+        working-directory: apps/mobile
+        run: flutter build apk --debug --dart-define-from-file=../../env.example.json
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tradelens-debug-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: '**/coverage/lcov.info'
+          if-no-files-found: warn
+
+  golden:
+    name: golden tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Flutter version from .fvmrc
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - name: Bootstrap workspace
+        run: |
+          dart pub global activate melos
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
+          "$PUB_CACHE/bin/melos" run generate
+
+      # Golden tests are tagged `golden` and live only in packages that ship a
+      # flutter_test_config.dart (font loading, day 4). Filtering on that file
+      # avoids "no tests match tag" failures in packages without goldens.
+      - name: Run golden tests
+        run: melos exec --file-exists test/flutter_test_config.dart -- flutter test --tags golden
+
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: '**/test/**/failures/**'
+          if-no-files-found: ignore
+
+  e2e:
+    name: patrol e2e (iOS simulator)
+    # Day-1 placeholder: the job exists so the runner, patrol_cli and the
+    # simulator boot are proven before the scenarios land on day 8.
+    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Flutter version from .fvmrc
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      # Pinned: patrol_cli and the patrol package must stay a matching pair
+      # (spec, "Тесты"). Bump both together when the day-8 scenarios land.
+      - name: Install patrol_cli
+        run: |
+          dart pub global activate patrol_cli 4.7.0
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/patrol" --version
+
+      - name: Boot iOS simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | test("iPhone 1[5-9]")) | .udid' | head -n1)
+          echo "Booting $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Run e2e scenarios
+        run: |
+          echo "No Patrol scenarios yet. Planned for day 8 - startup, pair, portfolio; manual CoinGecko fallback."

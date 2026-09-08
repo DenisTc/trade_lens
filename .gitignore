@@ -1,0 +1,33 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+coverage/
+pubspec_overrides.yaml
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+.DS_Store
+
+# fvm
+.fvm/
+
+# generated code (produced in CI by `melos run generate`)
+**/*.g.dart
+**/*.freezed.dart
+**/*.drift.dart
+
+# secrets
+env.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# golden failures
+**/test/**/failures/

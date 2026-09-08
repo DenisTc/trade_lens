@@ -1,0 +1,17 @@
+include: package:very_good_analysis/analysis_options.yaml
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.drift.dart"
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+linter:
+  rules:
+    public_member_api_docs: false
+    lines_longer_than_80_chars: false
+    # Classic `const Ok(this.value)` reads better for reviewers than the
+    # Dart 3.10 `this(...)` declaring-constructor form.
+    unnecessary_type_name_in_constructor: false
