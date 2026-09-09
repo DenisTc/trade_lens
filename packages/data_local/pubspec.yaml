@@ -13,7 +13,9 @@ dependencies:
   drift_flutter: ^0.3.1
   flutter:
     sdk: flutter
-  flutter_secure_storage: ^11.0.0
+  # 11.x needs compileSdk 37; Flutter 3.47's Android toolchain (AGP 9.1)
+  # tops out at 36, so the app would not build.
+  flutter_secure_storage: ^10.3.2
   path: ^1.9.0
 dev_dependencies:
   build_runner: ^2.16.1
