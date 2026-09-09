@@ -11,11 +11,13 @@ class TradeLensApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final locale = ref.watch(appLocaleSettingProvider).value;
     return MaterialApp.router(
       title: ref.watch(appNameProvider),
       debugShowCheckedModeBanner: false,
       theme: buildTradeLensTheme(Brightness.light),
       darkTheme: buildTradeLensTheme(Brightness.dark),
+      locale: locale,
       localizationsDelegates: SharedLocalizations.localizationsDelegates,
       supportedLocales: SharedLocalizations.supportedLocales,
       routerConfig: router,

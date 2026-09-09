@@ -160,11 +160,7 @@ class _PriceHeader extends ConsumerWidget {
           height: 40,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            ),
+            child: Skeleton(width: 160, height: 28),
           ),
         ),
       },

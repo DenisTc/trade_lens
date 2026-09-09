@@ -43,6 +43,8 @@
   "settingsSourceHint": "Автоматический режим проверяет Binance, его хост рыночных данных и Binance.US, затем переходит на CoinGecko.",
   "settingsCheckSource": "Проверить источник",
   "settingsCurrentSource": "Сейчас: {source}",
+  "language": "Язык",
+  "languageSystem": "Как в системе",
   "about": "О приложении",
   "aboutDataSources": "Источники данных",
   "aboutTermsChecked": "Условия проверены: {date}",
