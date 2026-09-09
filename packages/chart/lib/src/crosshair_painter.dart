@@ -47,6 +47,7 @@ final class CrosshairPainter extends CustomPainter {
     required this.theme,
     required this.interval,
     required this.labels,
+    required this.crosshairLabels,
     required this.position,
     this.showVolume = true,
     this.localTime = true,
@@ -57,6 +58,10 @@ final class CrosshairPainter extends CustomPainter {
   final CandleChartTheme theme;
   final ChartInterval interval;
   final LabelCache labels;
+
+  /// Laid out in the label colour of the crosshair; cached like the axis
+  /// labels so hover does not re-shape text every frame.
+  final LabelCache crosshairLabels;
   final CrosshairPosition? position;
   final bool showVolume;
   final bool localTime;
@@ -72,6 +77,7 @@ final class CrosshairPainter extends CustomPainter {
       candles: series.candles,
       showVolume: showVolume,
     );
+    if (p.offset.dx >= g.plotWidth || p.offset.dy > g.plotHeight) return;
     final index = g.indexAt(p.offset.dx);
     if (index == null || g.range == null) return;
     final candle = series[index];
@@ -107,7 +113,7 @@ final class CrosshairPainter extends CustomPainter {
     bool alignLeft = false,
     bool centered = false,
   }) {
-    final painter = labels.layout(text);
+    final painter = crosshairLabels.layout(text);
     final left = centered
         ? anchor.dx - painter.width / 2
         : alignLeft
@@ -124,18 +130,7 @@ final class CrosshairPainter extends CustomPainter {
       RRect.fromRectAndRadius(rect, const Radius.circular(3)),
       Paint()..color = theme.crosshairLabelBackground,
     );
-    final span = TextSpan(
-      text: text,
-      style: TextStyle(
-        color: theme.crosshairLabelText,
-        fontSize: theme.axisTextSize,
-        fontFamily: theme.fontFamily,
-      ),
-    );
-    TextPainter(text: span, textDirection: TextDirection.ltr)
-      ..layout()
-      ..paint(canvas, Offset(left, top))
-      ..dispose();
+    painter.paint(canvas, Offset(left, top));
   }
 
   @override

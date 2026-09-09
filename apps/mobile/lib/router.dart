@@ -15,8 +15,15 @@ abstract final class AppRoutes {
   static String pairPath(String symbol) => '/p/$symbol';
 }
 
+/// Start route for demos and screenshots, e.g.
+/// `--dart-define=TL_INITIAL_ROUTE=/p/BTCUSDT`. Empty in normal builds.
+const initialRouteOverride = String.fromEnvironment('TL_INITIAL_ROUTE');
+
 @Riverpod(keepAlive: true)
 GoRouter router(Ref ref) => GoRouter(
+  initialLocation: initialRouteOverride.isEmpty
+      ? AppRoutes.markets
+      : initialRouteOverride,
   routes: [
     GoRoute(
       path: AppRoutes.markets,

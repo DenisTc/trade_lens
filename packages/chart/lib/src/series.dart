@@ -7,11 +7,20 @@ import 'package:chart/src/model.dart';
 final class CandleSeries {
   CandleSeries._(this._candles);
 
+  /// Non-finite candles (NaN/Infinity from a broken source) are dropped:
+  /// one bad value must not break the whole chart.
   factory CandleSeries.of(Iterable<ChartCandle> candles) {
-    final sorted = candles.toList()
+    final sorted = candles.where(isFinite).toList()
       ..sort((a, b) => a.openTime.compareTo(b.openTime));
     return CandleSeries._(_dedupe(sorted));
   }
+
+  static bool isFinite(ChartCandle c) =>
+      c.open.isFinite &&
+      c.high.isFinite &&
+      c.low.isFinite &&
+      c.close.isFinite &&
+      (c.volume?.isFinite ?? true);
 
   static final empty = CandleSeries._(const []);
 
@@ -27,6 +36,7 @@ final class CandleSeries {
   /// current candle); a newer one is appended; an older gap-fill is
   /// inserted in order.
   CandleSeries upsert(ChartCandle candle) {
+    if (!isFinite(candle)) return this;
     if (_candles.isEmpty) return CandleSeries._([candle]);
     final last = _candles.last;
     if (candle.openTime == last.openTime) {

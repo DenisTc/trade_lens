@@ -52,7 +52,8 @@ final class PlotGeometry {
 
   double xOf(int index) => viewport.xOf(index);
 
-  int? indexAt(double x) => viewport.indexAt(x, candles.length);
+  int? indexAt(double x) =>
+      viewport.indexAt(x, candles.length, plotWidth: plotWidth);
 }
 
 /// Candles, volume bars, grid and both axes. Repaints only when the series

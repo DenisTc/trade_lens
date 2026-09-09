@@ -22,6 +22,9 @@ class Candles extends _$Candles {
       Ok(:final value) => value,
       Err(:final error) => throw error,
     };
+    // The screen may be gone or the interval switched while the REST call
+    // was in flight; a subscription opened now would never be cancelled.
+    if (!ref.mounted) return history;
     if (source.capabilities.klineStream && interval.duration != null) {
       final subscription = source
           .klineStream(instrument, interval)

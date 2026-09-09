@@ -34,6 +34,18 @@ void main() {
       expect(series.candles.map((c) => c.openTime.minute), [0, 1, 2, 3]);
     });
 
+    test('non-finite candles are dropped', () {
+      final bad = ChartCandle(
+        openTime: DateTime.utc(2026, 9, 9, 12, 5),
+        open: double.nan,
+        high: 1,
+        low: 1,
+        close: 1,
+      );
+      expect(CandleSeries.of([_c(0), bad]).length, 1);
+      expect(CandleSeries.of([_c(0)]).upsert(bad).length, 1);
+    });
+
     test('each mutation is a new instance', () {
       final a = CandleSeries.of([_c(0)]);
       final b = a.upsert(_c(0, close: 11));
@@ -96,10 +108,37 @@ void main() {
       expect(vp.priceRange(const [], plot), isNull);
     });
 
-    test('indexAt / xOf round-trip', () {
+    test('indexAt / xOf round-trip, bounded by the plot', () {
       const vp = ChartViewport(firstIndex: 5, candleWidth: 10);
       expect(vp.indexAt(vp.xOf(7), 100), 7);
       expect(vp.indexAt(-1, 100), isNull);
+      expect(vp.indexAt(301, 100, plotWidth: 300), isNull);
+    });
+
+    test('a candle fully past the right edge is not visible', () {
+      const vp = ChartViewport(firstIndex: 0, candleWidth: 30);
+      expect(vp.visibleRange(100, plot), (0, 10));
+    });
+
+    test('transformed applies zoom and pan with a single clamp', () {
+      const vp = ChartViewport(firstIndex: 72, candleWidth: 10); // at end
+      final out = vp.transformed(
+        factor: 0.5,
+        focalX: 290,
+        dx: 0,
+        total: 100,
+        plotWidth: plot,
+      );
+      expect(out.candleWidth, 5);
+      expect(out.firstIndex, lessThanOrEqualTo(100 + 2 - 60));
+      final moved = vp.transformed(
+        factor: 1,
+        focalX: 150,
+        dx: 50,
+        total: 100,
+        plotWidth: plot,
+      );
+      expect(moved.firstIndex, 67);
     });
 
     test('maxVolume ignores candles without volume', () {

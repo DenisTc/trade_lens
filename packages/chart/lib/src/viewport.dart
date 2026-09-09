@@ -81,18 +81,39 @@ final class ChartViewport {
   /// Pixel x of the *centre* of candle [index] inside the plot.
   double xOf(int index) => (index - firstIndex + 0.5) * candleWidth;
 
-  /// Candle index under pixel [x], or null outside the series.
-  int? indexAt(double x, int total) {
-    if (x < 0) return null;
+  /// Candle index under pixel [x] inside a plot of [plotWidth], or null
+  /// outside the plot or the series (the price axis is not the plot).
+  int? indexAt(double x, int total, {double? plotWidth}) {
+    if (x < 0 || (plotWidth != null && x >= plotWidth)) return null;
     final index = (firstIndex + x / candleWidth).floor();
     return index >= 0 && index < total ? index : null;
   }
 
-  /// Visible index range `[start, end)` clamped to the series.
+  /// Visible index range `[start, end)`: candles that intersect the plot,
+  /// clamped to the series. A candle fully past the right edge is not
+  /// visible and must not stretch the price range.
   (int, int) visibleRange(int total, double plotWidth) {
     final start = math.max(0, firstIndex.floor());
-    final end = math.min(total, lastIndex(plotWidth).ceil() + 1);
+    final end = math.min(total, lastIndex(plotWidth).ceil());
     return (start, math.max(start, end));
+  }
+
+  /// One gesture step: scale by [factor] around [focalX] *and* pan by
+  /// [dx], clamped once at the end so an intermediate clamp cannot move the
+  /// candle from under the fingers.
+  ChartViewport transformed({
+    required double factor,
+    required double focalX,
+    required double dx,
+    required int total,
+    required double plotWidth,
+  }) {
+    final width = (candleWidth * factor).clamp(minCandleWidth, maxCandleWidth);
+    final focalIndex = firstIndex + focalX / candleWidth;
+    return copyWith(
+      candleWidth: width,
+      firstIndex: focalIndex - (focalX + dx) / width,
+    ).clamped(total, plotWidth);
   }
 
   /// Price extent of the visible candles with a little headroom, or null

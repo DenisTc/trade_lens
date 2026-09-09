@@ -15,16 +15,53 @@ ChartCandle toChartCandle(Candle c) => ChartCandle(
   volume: c.volume?.toDouble(),
 );
 
-/// Series for the chart, rebuilt only when the candle list changes.
+/// Series for the chart. A live tick changes one candle in a 500-candle
+/// list; converting and sorting everything again per tick would grow with
+/// the history, so the previous series is reused and only the changed
+/// tail is upserted.
 @riverpod
-AsyncValue<CandleSeries> chartSeries(
-  Ref ref,
-  Instrument instrument,
-  Interval interval,
+class ChartSeries extends _$ChartSeries {
+  List<Candle>? _lastCandles;
+  CandleSeries? _lastSeries;
+
+  @override
+  AsyncValue<CandleSeries> build(Instrument instrument, Interval interval) {
+    return ref.watch(candlesProvider(instrument, interval)).whenData((candles) {
+      final series = incrementalSeries(_lastCandles, _lastSeries, candles);
+      _lastCandles = candles;
+      _lastSeries = series;
+      return series;
+    });
+  }
+}
+
+/// Reuses [previousSeries] when [next] shares its prefix with [previous]
+/// (same candle instances), upserting only the differing tail. Falls back
+/// to a full rebuild when the lists diverge earlier or shrink.
+CandleSeries incrementalSeries(
+  List<Candle>? previous,
+  CandleSeries? previousSeries,
+  List<Candle> next,
 ) {
-  return ref
-      .watch(candlesProvider(instrument, interval))
-      .whenData((candles) => CandleSeries.of(candles.map(toChartCandle)));
+  if (previous == null ||
+      previousSeries == null ||
+      next.length < previous.length) {
+    return CandleSeries.of(next.map(toChartCandle));
+  }
+  var shared = 0;
+  while (shared < previous.length &&
+      identical(previous[shared], next[shared])) {
+    shared++;
+  }
+  // Only the last few candles may differ (live update, backfill append).
+  if (previous.length - shared > 2) {
+    return CandleSeries.of(next.map(toChartCandle));
+  }
+  var series = previousSeries;
+  for (var i = shared; i < next.length; i++) {
+    series = series.upsert(toChartCandle(next[i]));
+  }
+  return series;
 }
 
 /// Axis interval: the requested one, or the granularity the source actually

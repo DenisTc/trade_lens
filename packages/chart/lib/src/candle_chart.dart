@@ -52,6 +52,7 @@ class CandleChartState extends State<CandleChart> {
   );
   CrosshairPosition? _crosshair;
   LabelCache? _labels;
+  LabelCache? _crosshairLabels;
   CandleChartTheme? _theme;
   double _plotWidth = 0;
   bool _following = true;
@@ -71,6 +72,7 @@ class CandleChartState extends State<CandleChart> {
   @override
   void dispose() {
     _labels?.dispose();
+    _crosshairLabels?.dispose();
     super.dispose();
   }
 
@@ -78,9 +80,17 @@ class CandleChartState extends State<CandleChart> {
     final theme = widget.theme ?? CandleChartTheme.of(context);
     if (theme != _theme) {
       _labels?.dispose();
+      _crosshairLabels?.dispose();
       _labels = LabelCache(
         style: TextStyle(
           color: theme.axisText,
+          fontSize: theme.axisTextSize,
+          fontFamily: theme.fontFamily,
+        ),
+      );
+      _crosshairLabels = LabelCache(
+        style: TextStyle(
+          color: theme.crosshairLabelText,
           fontSize: theme.axisTextSize,
           fontFamily: theme.fontFamily,
         ),
@@ -121,28 +131,45 @@ class CandleChartState extends State<CandleChart> {
             onLongPressStart: (d) => _setCrosshair(d.localPosition),
             onLongPressMoveUpdate: (d) => _setCrosshair(d.localPosition),
             onLongPressEnd: (_) => _setCrosshair(null),
-            child: CustomPaint(
-              key: const Key('candle_chart_paint'),
-              painter: CandlePainter(
-                series: widget.series,
-                viewport: viewport,
-                theme: theme,
-                interval: widget.interval,
-                labels: _labels!,
-                showVolume: widget.showVolume,
-                localTime: widget.localTime,
-              ),
-              foregroundPainter: CrosshairPainter(
-                series: widget.series,
-                viewport: viewport,
-                theme: theme,
-                interval: widget.interval,
-                labels: _labels!,
-                position: _crosshair,
-                showVolume: widget.showVolume,
-                localTime: widget.localTime,
-              ),
-              size: Size.infinite,
+            // Two render objects, each behind its own repaint boundary:
+            // moving the crosshair repaints only the top layer. A single
+            // CustomPaint with a foregroundPainter would repaint both.
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                RepaintBoundary(
+                  child: CustomPaint(
+                    key: const Key('candle_chart_paint'),
+                    painter: CandlePainter(
+                      series: widget.series,
+                      viewport: viewport,
+                      theme: theme,
+                      interval: widget.interval,
+                      labels: _labels!,
+                      showVolume: widget.showVolume,
+                      localTime: widget.localTime,
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+                RepaintBoundary(
+                  child: CustomPaint(
+                    key: const Key('candle_chart_crosshair'),
+                    painter: CrosshairPainter(
+                      series: widget.series,
+                      viewport: viewport,
+                      theme: theme,
+                      interval: widget.interval,
+                      labels: _labels!,
+                      crosshairLabels: _crosshairLabels!,
+                      position: _crosshair,
+                      showVolume: widget.showVolume,
+                      localTime: widget.localTime,
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -161,11 +188,13 @@ class CandleChartState extends State<CandleChart> {
     final focal = _scaleFocal;
     if (start == null || focal == null) return;
     final total = widget.series.length;
-    var next = start;
-    if (d.pointerCount > 1 || d.scale != 1) {
-      next = next.zoomAt(d.scale, focal.dx, total, _plotWidth);
-    }
-    next = next.pan(d.localFocalPoint.dx - focal.dx, total, _plotWidth);
+    final next = start.transformed(
+      factor: d.scale,
+      focalX: focal.dx,
+      dx: d.localFocalPoint.dx - focal.dx,
+      total: total,
+      plotWidth: _plotWidth,
+    );
     setState(() {
       viewport = next;
       _following = next.isAtEnd(total, _plotWidth);
@@ -182,7 +211,11 @@ class CandleChartState extends State<CandleChart> {
       callback(null);
       return;
     }
-    final index = viewport.indexAt(local.dx, widget.series.length);
+    final index = viewport.indexAt(
+      local.dx,
+      widget.series.length,
+      plotWidth: _plotWidth,
+    );
     if (index == null) {
       callback(null);
       return;

@@ -61,7 +61,7 @@ final class LabelCache {
   TextPainter layout(String text) {
     final cached = _cache[text];
     if (cached != null) return cached;
-    if (_cache.length >= capacity) _cache.remove(_cache.keys.first);
+    if (_cache.length >= capacity) _cache.remove(_cache.keys.first)?.dispose();
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,

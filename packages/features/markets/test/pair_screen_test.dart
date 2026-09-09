@@ -144,6 +144,23 @@ void main() {
     expect(source.klineRequests.map((r) => r.$2), [Interval.h1, Interval.m15]);
   });
 
+  test('incrementalSeries reuses the previous series for tail updates', () {
+    final first = [for (var i = 0; i < 5; i++) _c(i)];
+    final series = incrementalSeries(null, null, first);
+    expect(series.length, 5);
+
+    final updated = [...first.take(4), _c(4)]; // live update of the last
+    final next = incrementalSeries(first, series, updated);
+    expect(next.length, 5);
+    expect(identical(next, series), isFalse);
+
+    final appended = [...updated, _c(5)];
+    expect(incrementalSeries(updated, next, appended).length, 6);
+
+    final rebuilt = incrementalSeries(appended, next, [_c(9)]);
+    expect(rebuilt.length, 1, reason: 'shrunk list → full rebuild');
+  });
+
   test('chartIntervalFor labels auto by observed granularity', () {
     expect(chartIntervalFor(Interval.h1, const []).label, '1h');
     final auto = chartIntervalFor(Interval.auto, [
