@@ -10,7 +10,8 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/ws_client': {'core'},
   'packages/data_market': {'core', 'domain', 'ws_client'},
   'packages/data_local': {'core', 'domain'},
-  'packages/chart': {'core'},
+  // dev-only: golden test config lives in features_shared/testing.dart
+  'packages/chart': {'core', 'features_shared'},
   'packages/sdui': {'core'},
   'packages/ai_insights': {'core', 'domain'},
   'packages/features/shared': {'core', 'domain'},

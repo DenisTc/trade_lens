@@ -13,6 +13,8 @@ dependencies:
   flutter: 
     sdk: flutter
   flutter_riverpod: ^3.4.3
+  flutter_test:
+    sdk: flutter
   intl: ^0.20.3
   riverpod_annotation: ^4.0.7
 dev_dependencies:
