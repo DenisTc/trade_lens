@@ -51,8 +51,6 @@ abstract class PortfolioValuation with _$PortfolioValuation {
 
   const PortfolioValuation._();
 
-  int get unavailableCount => entries.where((e) => !e.isAvailable).length;
-
   /// Pure function: positions × prices → valuation. No I/O, no clocks.
   ///
   /// A position is valued only by a quote in its own quote currency; a
@@ -107,6 +105,8 @@ abstract class PortfolioValuation with _$PortfolioValuation {
       isLive: isLive,
     );
   }
+
+  int get unavailableCount => entries.where((e) => !e.isAvailable).length;
 
   static Decimal? _pct(Decimal pnl, Decimal cost) => cost == Decimal.zero
       ? null
