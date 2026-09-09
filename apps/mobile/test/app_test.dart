@@ -1,4 +1,5 @@
 import 'package:domain/domain.dart';
+import 'package:features_portfolio/features_portfolio.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tradelens/app.dart';
 import 'package:tradelens/router.dart';
+import 'package:tradelens/screens/home_shell.dart';
 
 void main() {
   late FakeMarketDataSource source;
@@ -98,5 +100,28 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const Key('add_position')), findsOneWidget);
+  });
+
+  testWidgets('position editor opens on the root navigator, above the '
+      'glass tab bar', (tester) async {
+    await tester.pumpWidget(scoped());
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('tab_portfolio')));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('add_position')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byType(PositionEditor);
+    expect(sheet, findsOneWidget);
+    // The sheet's route belongs to the root navigator: the shell's tab
+    // bar is not an ancestor of it.
+    expect(
+      find.ancestor(of: sheet, matching: find.byType(HomeShell)),
+      findsNothing,
+    );
+    final sheetBottom = tester.getBottomLeft(find.byType(BottomSheet)).dy;
+    final barTop = tester.getTopLeft(find.byType(GlassTabBar)).dy;
+    expect(sheetBottom, greaterThan(barTop));
   });
 }
