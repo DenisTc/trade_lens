@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:domain/domain.dart';
+import 'package:features_shared/src/providers/error_reporter.dart';
 
 /// In-memory storage doubles for feature tests.
 final class FakePortfolioRepository implements PortfolioRepository {
@@ -121,4 +122,54 @@ final class FakeSettingsStore implements SettingsStore {
     );
     return controller.stream;
   }
+}
+
+/// In-memory [InsightsConfigSource]: emits [current] on listen and every
+/// value pushed through [push].
+final class FakeInsightsConfigSource implements InsightsConfigSource {
+  FakeInsightsConfigSource([InsightsConfig? initial])
+    : current = initial ?? defaults;
+
+  static const defaults = InsightsConfig(
+    insightsScreenJson:
+        '{"schema":1,"children":[{"type":"header","text":{"en":"Fake"}}]}',
+    aiInsightsEnabled: false,
+    source: InsightsConfigOrigin.defaults,
+  );
+
+  InsightsConfig current;
+  int refreshes = 0;
+  final StreamController<InsightsConfig> _changes =
+      StreamController.broadcast();
+
+  void push(InsightsConfig config) {
+    current = config;
+    _changes.add(config);
+  }
+
+  @override
+  Stream<InsightsConfig> watch() {
+    late final StreamController<InsightsConfig> controller;
+    StreamSubscription<InsightsConfig>? sub;
+    controller = StreamController<InsightsConfig>(
+      onListen: () {
+        controller.add(current);
+        sub = _changes.stream.listen(controller.add);
+      },
+      onCancel: () => sub?.cancel(),
+    );
+    return controller.stream;
+  }
+
+  @override
+  Future<void> refresh() async => refreshes++;
+}
+
+/// Collects handled errors for assertions.
+final class RecordingErrorReporter implements ErrorReporter {
+  final reports = <(Object error, String? hint)>[];
+
+  @override
+  void report(Object error, {StackTrace? stackTrace, String? hint}) =>
+      reports.add((error, hint));
 }

@@ -7,6 +7,7 @@ workspace:
   - packages/domain
   - packages/data_market
   - packages/data_local
+  - packages/data_config
   - packages/ws_client
   - packages/chart
   - packages/sdui

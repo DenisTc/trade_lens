@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "children": [
+    {"type": "header", "text": {"en": "Market today", "ru": "Рынок сегодня"}},
+    {"type": "text", "text": {"en": "The three largest pairs by turnover, live from the exchange.", "ru": "Три крупнейшие пары по обороту, вживую с биржи."}, "style": "muted"},
+    {"type": "ticker_card", "symbol": "BTCUSDT", "showSparkline": true},
+    {"type": "ticker_card", "symbol": "ETHUSDT", "showSparkline": true},
+    {"type": "ticker_card", "symbol": "SOLUSDT", "showSparkline": true},
+    {"type": "button", "label": {"en": "Open BTC/USDT", "ru": "Открыть BTC/USDT"}, "action": {"route": "/p/BTCUSDT"}},
+    {"type": "header", "text": {"en": "About this screen", "ru": "Об этом экране"}},
+    {"type": "text", "text": {"en": "This screen is described by JSON in Firebase Remote Config: cards, order and texts change without a release. The built-in version is shown until the config arrives.", "ru": "Этот экран описан JSON-ом в Firebase Remote Config: карточки, порядок и тексты меняются без релиза. Пока конфиг не пришёл, показывается встроенная версия."}, "style": "muted"}
+  ]
+}
