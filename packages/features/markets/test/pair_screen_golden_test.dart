@@ -36,9 +36,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           retry: noRetry,
-          overrides: [
-            marketDataSourceProvider.overrideWith((ref) async => source),
-          ],
+          overrides: fakeOverrides(source: source),
           child: MaterialApp(
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(

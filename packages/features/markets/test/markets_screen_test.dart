@@ -14,11 +14,7 @@ void main() {
   Widget app({Future<MarketDataSource> Function()? sourceFactory}) =>
       ProviderScope(
         retry: noRetry,
-        overrides: [
-          marketDataSourceProvider.overrideWith(
-            (ref) => sourceFactory?.call() ?? Future.value(source),
-          ),
-        ],
+        overrides: fakeOverrides(source: source, sourceFactory: sourceFactory),
         child: MaterialApp(home: MarketsScreen(onOpenPair: opened.add)),
       );
 

@@ -21,9 +21,7 @@ void main() {
   Widget app(FakeMarketDataSource source, Instrument instrument) =>
       ProviderScope(
         retry: noRetry,
-        overrides: [
-          marketDataSourceProvider.overrideWith((ref) async => source),
-        ],
+        overrides: fakeOverrides(source: source),
         child: MaterialApp(
           home: PairScreen(instrument: instrument, localTime: false),
         ),

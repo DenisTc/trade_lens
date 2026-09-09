@@ -20,7 +20,7 @@ void main() {
   ProviderContainer container(FakeMarketDataSource source) {
     final c = ProviderContainer(
       retry: noRetry,
-      overrides: [marketDataSourceProvider.overrideWith((ref) async => source)],
+      overrides: fakeOverrides(source: source),
     );
     addTearDown(c.dispose);
     return c;
@@ -62,6 +62,62 @@ void main() {
       source.emitCandle(btc, _c(1));
       await settle();
       expect(c.read(candlesProvider(btc, Interval.auto)).value, hasLength(1));
+    },
+  );
+
+  test(
+    'candles: cache is shown first, network replaces it and refills the cache',
+    () async {
+      final source = FakeMarketDataSource(history: [_c(0), _c(1), _c(2)]);
+      final cache = FakeCandleCache();
+      final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+      await cache.write(btc, Interval.m1, [_c(0)]);
+      final c = ProviderContainer(
+        retry: noRetry,
+        overrides: fakeOverrides(source: source, candleCache: cache),
+      );
+      addTearDown(c.dispose);
+      final seen = <int>[];
+      c.listen(candlesProvider(btc, Interval.m1), (_, next) {
+        if (next.value case final v?) seen.add(v.length);
+      });
+      await settle();
+      await settle();
+      await settle();
+      expect(seen.first, 1, reason: 'cached window shown first');
+      expect(seen.last, 3, reason: 'network replaced it');
+      expect(
+        cache.entries.values.single,
+        hasLength(3),
+        reason: 'cache refilled',
+      );
+    },
+  );
+
+  test(
+    'candles: with a cache, a REST failure keeps the cached window',
+    () async {
+      final source = FakeMarketDataSource(
+        klinesError: const MarketError.unavailable(
+          sourceId: 'fake',
+          reason: 'timeout',
+        ),
+      );
+      final cache = FakeCandleCache();
+      final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+      await cache.write(btc, Interval.m1, [_c(0), _c(1)]);
+      final c = ProviderContainer(
+        retry: noRetry,
+        overrides: fakeOverrides(source: source, candleCache: cache),
+      );
+      addTearDown(c.dispose);
+      c.listen(candlesProvider(btc, Interval.m1), (_, _) {});
+      await settle();
+      await settle();
+      await settle();
+      final state = c.read(candlesProvider(btc, Interval.m1));
+      expect(state.hasError, isFalse);
+      expect(state.value, hasLength(2));
     },
   );
 
