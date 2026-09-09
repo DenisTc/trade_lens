@@ -1,8 +1,11 @@
+import 'package:features_portfolio/features_portfolio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:tradelens/screens/home_shell.dart';
 import 'package:tradelens/screens/markets_screen.dart';
 import 'package:tradelens/screens/pair_screen.dart';
+import 'package:tradelens/screens/settings_screen.dart';
 
 part 'router.g.dart';
 
@@ -11,6 +14,8 @@ part 'router.g.dart';
 abstract final class AppRoutes {
   static const markets = '/';
   static const pair = '/p/:symbol';
+  static const portfolio = '/portfolio';
+  static const settings = '/settings';
 
   static String pairPath(String symbol) => '/p/$symbol';
 }
@@ -25,14 +30,39 @@ GoRouter router(Ref ref) => GoRouter(
       ? AppRoutes.markets
       : initialRouteOverride,
   routes: [
-    GoRoute(
-      path: AppRoutes.markets,
-      builder: (context, state) => const MarketsScreen(),
-      routes: [
-        GoRoute(
-          path: 'p/:symbol',
-          builder: (context, state) =>
-              PairScreen(symbol: state.pathParameters['symbol']!),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, shell) => HomeShell(navigationShell: shell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.markets,
+              builder: (context, state) => const MarketsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'p/:symbol',
+                  builder: (context, state) =>
+                      PairScreen(symbol: state.pathParameters['symbol']!),
+                ),
+              ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.portfolio,
+              builder: (context, state) => const PortfolioScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.settings,
+              builder: (context, state) => const SettingsScreen(),
+            ),
+          ],
         ),
       ],
     ),

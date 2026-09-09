@@ -33,9 +33,7 @@ class PairScreen extends ConsumerWidget {
         if (match.isEmpty) {
           return Scaffold(
             appBar: AppBar(title: Text(symbol)),
-            body: Center(
-              child: Text('$symbol is not available on this source'),
-            ),
+            body: Center(child: Text(context.l10n.pairNotAvailable(symbol))),
           );
         }
         return markets.PairScreen(instrument: match.first);

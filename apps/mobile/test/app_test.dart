@@ -16,7 +16,7 @@ void main() {
   // scope is built here instead of typing a list of overrides.
   Widget scoped() => ProviderScope(
     retry: noRetry,
-    overrides: [marketDataSourceProvider.overrideWith((ref) async => source)],
+    overrides: fakeOverrides(source: source),
     child: const TradeLensApp(),
   );
 
@@ -31,7 +31,7 @@ void main() {
   testWidgets('/p/:symbol opens the pair screen', (tester) async {
     final container = ProviderContainer(
       retry: noRetry,
-      overrides: [marketDataSourceProvider.overrideWith((ref) async => source)],
+      overrides: fakeOverrides(source: source),
     );
     addTearDown(container.dispose);
 
@@ -68,6 +68,6 @@ void main() {
     await tester.pump();
     source.emit(source.instrumentFor(defaultAssets.first, 'USDT'), '50000');
     await tester.pump();
-    expect(find.text('50 000.00'), findsOneWidget);
+    expect(find.text('50,000.00'), findsOneWidget);
   });
 }

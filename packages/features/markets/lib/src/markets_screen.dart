@@ -30,7 +30,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> {
     final instruments = ref.watch(marketInstrumentsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title ?? 'Markets'),
+        title: Text(widget.title ?? context.l10n.tabMarkets),
         actions: const [ConnectionDot()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
@@ -41,7 +41,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> {
               controller: _search,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Search',
+                hintText: context.l10n.search,
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border: OutlineInputBorder(
@@ -67,7 +67,7 @@ class _MarketsScreenState extends ConsumerState<MarketsScreen> {
         data: (all) {
           final visible = filterInstruments(all, _search.text);
           if (visible.isEmpty) {
-            return const Center(child: Text('Nothing matches'));
+            return Center(child: Text(context.l10n.nothingMatches));
           }
           return ListView.builder(
             itemCount: visible.length,

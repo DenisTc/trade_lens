@@ -1,8 +1,8 @@
 import 'package:domain/domain.dart';
-import 'package:features_markets/src/format.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 /// Last 30 trades, newest on top. Sells (buyer was maker) in red.
 class TradeTape extends ConsumerWidget {
@@ -14,14 +14,17 @@ class TradeTape extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trades = ref.watch(recentTradesProvider(instrument));
     final theme = Theme.of(context);
+    final tokens = context.tokens;
+    final locale = context.localeTag;
     final style = theme.textTheme.bodySmall?.copyWith(
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final timeFormat = DateFormat.Hms(locale);
     return AsyncValueView<List<Trade>>(
       value: trades,
       loading: () => Padding(
         padding: const EdgeInsets.all(12),
-        child: Text('Waiting for trades…', style: style),
+        child: Text(context.l10n.waitingForTrades, style: style),
       ),
       data: (list) => Column(
         children: [
@@ -33,21 +36,20 @@ class TradeTape extends ConsumerWidget {
                 child: Row(
                   children: [
                     Text(
-                      formatPrice(trade.price),
+                      MoneyFormat.price(trade.price, locale: locale),
                       style: style?.copyWith(
-                        color: trade.isBuyerMaker
-                            ? theme.colorScheme.error
-                            : Colors.green.shade600,
+                        color: trade.isBuyerMaker ? tokens.down : tokens.up,
                       ),
                     ),
                     const Spacer(),
-                    Text(trade.qty.toStringAsFixed(4), style: style),
+                    Text(
+                      MoneyFormat.quantity(trade.qty, locale: locale),
+                      style: style,
+                    ),
                     const SizedBox(width: 12),
                     Text(
-                      _time(trade.at),
-                      style: style?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      timeFormat.format(trade.at.toLocal()),
+                      style: style?.copyWith(color: tokens.muted),
                     ),
                   ],
                 ),
@@ -56,11 +58,5 @@ class TradeTape extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static String _time(DateTime t) {
-    final l = t.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
   }
 }

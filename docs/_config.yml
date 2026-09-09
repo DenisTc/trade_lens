@@ -1,0 +1,8 @@
+title: TradeLens
+description: Legal pages for the TradeLens mobile app
+theme: jekyll-theme-minimal
+exclude:
+  - superpowers/
+  - spec/
+  - decisions/
+  - screenshots/
