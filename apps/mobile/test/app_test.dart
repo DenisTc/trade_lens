@@ -44,9 +44,12 @@ void main() {
     await tester.pump();
 
     container.read(routerProvider).go(AppRoutes.pairPath('ETHUSDT'));
-    await tester.pumpAndSettle();
+    // No pumpAndSettle: the pair screen keeps a spinner while the fake
+    // source stays silent.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.widgetWithText(AppBar, 'ETHUSDT'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'ETH/USDT'), findsOneWidget);
   });
 
   testWidgets('tapping a pair navigates to it', (tester) async {
@@ -54,9 +57,10 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('BTC/USDT'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.widgetWithText(AppBar, 'BTCUSDT'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'BTC/USDT'), findsOneWidget);
   });
 
   testWidgets('live price reaches the list', (tester) async {

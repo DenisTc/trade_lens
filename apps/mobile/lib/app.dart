@@ -13,6 +13,7 @@ class TradeLensApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: ref.watch(appNameProvider),
+      debugShowCheckedModeBanner: false,
       theme: TradeLensTheme.light,
       darkTheme: TradeLensTheme.dark,
       routerConfig: router,
