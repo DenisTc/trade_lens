@@ -9,13 +9,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 Future<void> showPositionEditor(BuildContext context, {Position? existing}) =>
     showModalBottomSheet<void>(
       context: context,
+      // The tab screens live in a nested navigator under the shell's
+      // floating tab bar; the sheet must open on the root navigator to
+      // cover the bar instead of sliding in beneath it.
+      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
       // The sheet's own context sees the keyboard inset; the page's
       // context under the shell may not.
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          bottom:
+              MediaQuery.viewInsetsOf(sheetContext).bottom +
+              MediaQuery.paddingOf(sheetContext).bottom,
         ),
         child: PositionEditor(existing: existing),
       ),
