@@ -163,6 +163,8 @@ void main() {
         ..fetchGate = Completer<void>()
         ..pending['ai_insights_enabled'] = true;
       final seen = <InsightsConfig>[];
+      // Closed by tearDown's dispose(); see the note at the end.
+      // ignore: cancel_subscriptions
       final sub = source.watch().listen(seen.add);
       async.flushMicrotasks();
       expect(client.fetches, 1, reason: 'the fetch started');
