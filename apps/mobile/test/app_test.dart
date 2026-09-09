@@ -68,6 +68,6 @@ void main() {
     await tester.pump();
     source.emit(source.instrumentFor(defaultAssets.first, 'USDT'), '50000');
     await tester.pump();
-    expect(find.text('50 000.00'), findsOneWidget);
+    expect(find.text('50,000.00'), findsOneWidget);
   });
 }

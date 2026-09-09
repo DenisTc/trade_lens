@@ -4,19 +4,16 @@ import 'package:features_markets/features_markets.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late FakeMarketDataSource source;
   final opened = <Instrument>[];
 
-  Widget app({Future<MarketDataSource> Function()? sourceFactory}) =>
-      ProviderScope(
-        retry: noRetry,
-        overrides: fakeOverrides(source: source, sourceFactory: sourceFactory),
-        child: MaterialApp(home: MarketsScreen(onOpenPair: opened.add)),
-      );
+  Widget app({Future<MarketDataSource> Function()? sourceFactory}) => testApp(
+    overrides: fakeOverrides(source: source, sourceFactory: sourceFactory),
+    home: MarketsScreen(onOpenPair: opened.add),
+  );
 
   setUp(() {
     source = FakeMarketDataSource();
@@ -36,7 +33,7 @@ void main() {
     final btc = source.instrumentFor(defaultAssets.first, 'USDT');
     source.emit(btc, '78339.52', change: '-1.939');
     await tester.pump();
-    expect(find.text('78 339.52'), findsOneWidget);
+    expect(find.text('78,339.52'), findsOneWidget);
     expect(find.text('-1.94%'), findsOneWidget);
   });
 
@@ -91,12 +88,27 @@ void main() {
     expect(filterInstruments(all, ''), all);
   });
 
-  test('formatPrice groups thousands and scales fraction digits', () {
-    expect(formatPrice(Decimal.parse('78339.52000000')), '78 339.52');
-    expect(formatPrice(Decimal.parse('1.5')), '1.5000');
-    expect(formatPrice(Decimal.parse('0.000123456')), '0.000123');
-    expect(formatChangePct(Decimal.parse('1.939')), '+1.94%');
-    expect(formatChangePct(Decimal.parse('-0.3')), '-0.30%');
-    expect(formatChangePct(null), isNull);
+  test('MoneyFormat follows the locale', () {
+    expect(
+      MoneyFormat.price(Decimal.parse('78339.52000000'), locale: 'en'),
+      '78,339.52',
+    );
+    expect(
+      MoneyFormat.price(Decimal.parse('78339.52'), locale: 'ru'),
+      '78\u00a0339,52',
+    );
+    expect(
+      MoneyFormat.price(Decimal.parse('0.000123456'), locale: 'en'),
+      '0.000123',
+    );
+    expect(
+      MoneyFormat.changePct(Decimal.parse('1.939'), locale: 'en'),
+      '+1.94%',
+    );
+    expect(
+      MoneyFormat.changePct(Decimal.parse('-0.3'), locale: 'en'),
+      '-0.30%',
+    );
+    expect(MoneyFormat.changePct(null), isNull);
   });
 }

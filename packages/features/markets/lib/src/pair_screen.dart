@@ -2,7 +2,6 @@ import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
 import 'package:features_markets/src/chart_mapping.dart';
 import 'package:features_markets/src/connection_dot.dart';
-import 'package:features_markets/src/format.dart';
 import 'package:features_markets/src/order_book_view.dart';
 import 'package:features_markets/src/trade_tape.dart';
 import 'package:features_shared/features_shared.dart';
@@ -86,20 +85,23 @@ class PairScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: Text(
-                'Prices only: ${chartIntervalFor(interval, candles.value ?? const []).label} candles, no volume',
+                context.l10n.pricesOnlyNote(
+                  chartIntervalFor(interval, candles.value ?? const []).label ??
+                      interval.code,
+                ),
                 key: const Key('prices_only_note'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
           if (capabilities.orderBook) ...[
-            const _SectionTitle('Order book'),
+            _SectionTitle(context.l10n.orderBook),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: OrderBookView(instrument: instrument),
             ),
           ],
           if (capabilities.trades) ...[
-            const _SectionTitle('Trades'),
+            _SectionTitle(context.l10n.trades),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: TradeTape(instrument: instrument),
@@ -122,6 +124,7 @@ class _PriceHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final quote = ref.watch(quoteProvider(instrument));
     final theme = Theme.of(context);
+    final locale = context.localeTag;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: switch (quote) {
@@ -130,20 +133,19 @@ class _PriceHeader extends ConsumerWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              formatPrice(value.price),
+              MoneyFormat.price(value.price, locale: locale),
               key: const Key('pair_price'),
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             const SizedBox(width: 12),
-            if (formatChangePct(value.change24hPct) case final change?)
+            if (MoneyFormat.changePct(value.change24hPct, locale: locale)
+                case final change?)
               Text(
                 change,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: (value.change24hPct?.sign ?? 0) >= 0
-                      ? Colors.green.shade600
-                      : theme.colorScheme.error,
+                  color: context.tokens.signed(value.change24hPct?.sign),
                 ),
               ),
           ],

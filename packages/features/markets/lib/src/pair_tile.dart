@@ -1,6 +1,5 @@
 import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
-import 'package:features_markets/src/format.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +17,7 @@ class PairTile extends ConsumerWidget {
     final quote = ref.watch(quoteProvider(instrument));
     final history = ref.watch(quoteHistoryProvider(instrument));
     final theme = Theme.of(context);
+    final tokens = context.tokens;
 
     return ListTile(
       onTap: onTap,
@@ -29,7 +29,7 @@ class PairTile extends ConsumerWidget {
         child: history.length >= 2
             ? Sparkline(
                 values: [for (final p in history) p.toDouble()],
-                color: _trendColor(history.first <= history.last, theme),
+                color: history.first <= history.last ? tokens.up : tokens.down,
               )
             : const SizedBox.shrink(),
       ),
@@ -47,9 +47,6 @@ class PairTile extends ConsumerWidget {
       },
     );
   }
-
-  static Color _trendColor(bool up, ThemeData theme) =>
-      up ? Colors.green.shade600 : theme.colorScheme.error;
 }
 
 class _QuoteColumn extends StatelessWidget {
@@ -60,14 +57,14 @@ class _QuoteColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final change = formatChangePct(quote.change24hPct);
-    final positive = (quote.change24hPct?.sign ?? 0) >= 0;
+    final locale = context.localeTag;
+    final change = MoneyFormat.changePct(quote.change24hPct, locale: locale);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          formatPrice(quote.price),
+          MoneyFormat.price(quote.price, locale: locale),
           style: theme.textTheme.titleMedium?.copyWith(
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
@@ -76,7 +73,7 @@ class _QuoteColumn extends StatelessWidget {
           Text(
             change,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: positive ? Colors.green.shade600 : theme.colorScheme.error,
+              color: context.tokens.signed(quote.change24hPct?.sign),
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),

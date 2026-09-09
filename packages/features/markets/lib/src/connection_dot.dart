@@ -12,15 +12,20 @@ class ConnectionDot extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status =
         ref.watch(connectionStatusProvider).value ?? ConnectionStatus.idle;
-    final scheme = Theme.of(context).colorScheme;
-    final color = switch (status) {
-      ConnectionStatus.connected => Colors.green,
-      ConnectionStatus.connecting ||
-      ConnectionStatus.reconnecting => Colors.amber,
-      ConnectionStatus.idle || ConnectionStatus.suspended => scheme.outline,
+    final tokens = context.tokens;
+    final l10n = context.l10n;
+    final (color, label) = switch (status) {
+      ConnectionStatus.connected => (tokens.up, l10n.connectionConnected),
+      ConnectionStatus.connecting => (tokens.warn, l10n.connectionConnecting),
+      ConnectionStatus.reconnecting => (
+        tokens.warn,
+        l10n.connectionReconnecting,
+      ),
+      ConnectionStatus.suspended => (tokens.muted, l10n.connectionSuspended),
+      ConnectionStatus.idle => (tokens.muted, l10n.connectionIdle),
     };
     return Tooltip(
-      message: status.name,
+      message: label,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Container(

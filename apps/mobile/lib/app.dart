@@ -1,10 +1,10 @@
+import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradelens/providers/app_info.dart';
 import 'package:tradelens/router.dart';
-import 'package:tradelens/theme.dart';
 
-/// Root widget: theme, router. Localization delegates arrive on day 5.
+/// Root widget: theme with tokens, localizations (en, ru), router.
 class TradeLensApp extends ConsumerWidget {
   const TradeLensApp({super.key});
 
@@ -14,8 +14,10 @@ class TradeLensApp extends ConsumerWidget {
     return MaterialApp.router(
       title: ref.watch(appNameProvider),
       debugShowCheckedModeBanner: false,
-      theme: TradeLensTheme.light,
-      darkTheme: TradeLensTheme.dark,
+      theme: buildTradeLensTheme(Brightness.light),
+      darkTheme: buildTradeLensTheme(Brightness.dark),
+      localizationsDelegates: SharedLocalizations.localizationsDelegates,
+      supportedLocales: SharedLocalizations.supportedLocales,
       routerConfig: router,
     );
   }

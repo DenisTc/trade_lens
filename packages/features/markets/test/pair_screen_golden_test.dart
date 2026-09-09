@@ -4,10 +4,8 @@ library;
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
 import 'package:features_markets/features_markets.dart';
-import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart' hide Interval;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Pair screen in light and dark theme with deterministic data. Regenerate
@@ -34,19 +32,10 @@ void main() {
       );
       final btc = source.instrumentFor(defaultAssets.first, 'USDT');
       await tester.pumpWidget(
-        ProviderScope(
-          retry: noRetry,
+        testApp(
           overrides: fakeOverrides(source: source),
-          child: MaterialApp(
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF3A56C7),
-                brightness: brightness,
-              ),
-              useMaterial3: true,
-            ),
-            home: PairScreen(instrument: btc, localTime: false),
-          ),
+          brightness: brightness,
+          home: PairScreen(instrument: btc, localTime: false),
         ),
       );
       await tester.pump();
