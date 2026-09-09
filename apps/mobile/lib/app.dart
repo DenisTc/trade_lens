@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradelens/providers/app_info.dart';
 import 'package:tradelens/router.dart';
 
+/// Locale for demos and store screenshots, e.g.
+/// `--dart-define=TL_LOCALE=en`. Empty in normal builds.
+const localeOverride = String.fromEnvironment('TL_LOCALE');
+
 /// Root widget: theme with tokens, appearance and language settings,
 /// localizations (en, ru), router.
 class TradeLensApp extends ConsumerWidget {
@@ -12,7 +16,9 @@ class TradeLensApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final locale = ref.watch(appLocaleSettingProvider).value;
+    final locale = localeOverride.isEmpty
+        ? ref.watch(appLocaleSettingProvider).value
+        : Locale(localeOverride);
     final themeMode =
         ref.watch(appThemeSettingProvider).value ?? ThemeMode.system;
     return MaterialApp.router(
