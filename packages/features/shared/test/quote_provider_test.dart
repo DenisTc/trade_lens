@@ -51,6 +51,42 @@ void main() {
     expect(quote.change24hPct, Decimal.parse('-1.5'));
   });
 
+  test('a re-listener gets the remembered quote at once', () async {
+    final first = container.listen(quoteProvider(btc), (_, _) {});
+    await settle();
+    source.emit(btc, '123');
+    await settle();
+    first.close();
+    await settle();
+
+    container.listen(quoteProvider(btc), (_, _) {});
+    await settle();
+    expect(
+      container.read(quoteProvider(btc)).value?.price,
+      Decimal.fromInt(123),
+      reason: 'no spinner: the last price is replayed from the memo',
+    );
+  });
+
+  test(
+    'with a keep-alive grace the socket subscription survives a scroll',
+    () async {
+      final graced = ProviderContainer(
+        retry: noRetry,
+        overrides: fakeOverrides(
+          source: source,
+          quoteKeepAlive: const Duration(minutes: 1),
+        ),
+      );
+      addTearDown(graced.dispose);
+      final sub = graced.listen(quoteProvider(btc), (_, _) {});
+      await settle();
+      sub.close();
+      await settle();
+      expect(source.listenerCount(btc), 1, reason: 'kept alive for the grace');
+    },
+  );
+
   test('quote history keeps the last 60 prices', () async {
     container.listen(quoteHistoryProvider(btc), (_, _) {});
     await settle();

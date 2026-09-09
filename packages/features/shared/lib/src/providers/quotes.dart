@@ -9,6 +9,22 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'quotes.g.dart';
 
+/// How long a quote provider stays alive after its last listener leaves,
+/// so a list row scrolled out and back in neither re-subscribes on the
+/// socket nor shows a spinner. Tests override it with zero.
+@Riverpod(keepAlive: true)
+Duration quoteKeepAlive(Ref ref) => const Duration(seconds: 45);
+
+/// Last live quote per instrument for the app's lifetime: a row that
+/// comes back after a long scroll paints the last price immediately.
+@Riverpod(keepAlive: true)
+class QuoteMemo extends _$QuoteMemo {
+  @override
+  Map<Instrument, Quote> build() => {};
+
+  void remember(Quote quote) => state = {...state, quote.instrument: quote};
+}
+
 /// How often a live quote is written to `last_quotes` per instrument.
 /// One tick a second times twenty rows must not become twenty writes a
 /// second.
@@ -21,12 +37,17 @@ const quotePersistInterval = Duration(seconds: 15);
 /// registry counts listeners, not screens.
 @riverpod
 Stream<Quote> quote(Ref ref, Instrument instrument) async* {
+  _keepAliveFor(ref, ref.read(quoteKeepAliveProvider));
+  final remembered = ref.read(quoteMemoProvider)[instrument];
+  if (remembered != null) yield remembered;
   final source = await ref.watch(marketDataSourceProvider.future);
   final store = ref.watch(lastQuoteStoreProvider);
+  final memo = ref.read(quoteMemoProvider.notifier);
   DateTime? lastSaved;
   // `yield*` (not `await for`) so cancelling the provider cancels the
   // exchange subscription immediately, without waiting for the next tick.
   yield* source.quoteStream([instrument]).map((quote) {
+    memo.remember(quote);
     final now = clock.now();
     final saved = lastSaved;
     if (saved == null || now.difference(saved) >= quotePersistInterval) {
@@ -37,8 +58,22 @@ Stream<Quote> quote(Ref ref, Instrument instrument) async* {
   });
 }
 
+/// Keeps an autoDispose provider alive for [grace] after its last
+/// listener leaves; a new listener within the grace cancels the timer.
+void _keepAliveFor(Ref ref, Duration grace) {
+  if (grace <= Duration.zero) return; // plain autoDispose
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref
+    ..onCancel(() => timer = Timer(grace, link.close))
+    ..onResume(() => timer?.cancel())
+    ..onDispose(() => timer?.cancel());
+}
+
 /// Last [QuoteHistory.capacity] prices of an instrument for the sparkline.
-@riverpod
+/// Kept alive: sixty Decimals per pair is nothing, and a sparkline that
+/// restarts empty every time a row scrolls back in looks broken.
+@Riverpod(keepAlive: true)
 class QuoteHistory extends _$QuoteHistory {
   static const capacity = 60;
 

@@ -1,4 +1,6 @@
 import 'package:features_portfolio/features_portfolio.dart';
+import 'package:features_settings/features_settings.dart'
+    show AboutScreen, LanguageScreen;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -16,6 +18,9 @@ abstract final class AppRoutes {
   static const pair = '/p/:symbol';
   static const portfolio = '/portfolio';
   static const settings = '/settings';
+  static const settingsSource = '/settings/source';
+  static const settingsLanguage = '/settings/language';
+  static const settingsAbout = '/settings/about';
 
   static String pairPath(String symbol) => '/p/$symbol';
 }
@@ -61,6 +66,20 @@ GoRouter router(Ref ref) => GoRouter(
             GoRoute(
               path: AppRoutes.settings,
               builder: (context, state) => const SettingsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'source',
+                  builder: (context, state) => const DataSourceScreen(),
+                ),
+                GoRoute(
+                  path: 'language',
+                  builder: (context, state) => const LanguageScreen(),
+                ),
+                GoRoute(
+                  path: 'about',
+                  builder: (context, state) => const AboutScreen(),
+                ),
+              ],
             ),
           ],
         ),

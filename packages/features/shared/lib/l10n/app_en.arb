@@ -50,6 +50,8 @@
   "settingsCheckSource": "Check source now",
   "settingsCurrentSource": "Current: {source}",
   "@settingsCurrentSource": {"placeholders": {"source": {"type": "String"}}},
+  "language": "Language",
+  "languageSystem": "System default",
   "about": "About",
   "aboutDataSources": "Data sources",
   "aboutTermsChecked": "Terms last checked: {date}",

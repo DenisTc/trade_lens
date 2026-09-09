@@ -1,5 +1,6 @@
 import 'package:domain/domain.dart';
 import 'package:features_shared/src/providers/market_data_source.dart';
+import 'package:features_shared/src/providers/quotes.dart';
 import 'package:features_shared/src/providers/storage.dart';
 import 'package:features_shared/src/testing/fake_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -15,6 +16,10 @@ List<Override> fakeOverrides({
   LastQuoteStore? lastQuotes,
   CandleCache? candleCache,
   SettingsStore? settings,
+
+  /// Keep-alive grace of quote providers; zero by default so disposal is
+  /// observable right away.
+  Duration quoteKeepAlive = Duration.zero,
 }) => [
   marketDataSourceProvider.overrideWith(
     (ref) => sourceFactory?.call() ?? Future.value(source),
@@ -25,4 +30,6 @@ List<Override> fakeOverrides({
   lastQuoteStoreProvider.overrideWithValue(lastQuotes ?? FakeLastQuoteStore()),
   candleCacheProvider.overrideWithValue(candleCache ?? FakeCandleCache()),
   settingsStoreProvider.overrideWithValue(settings ?? FakeSettingsStore()),
+  // No keep-alive grace in tests: disposal is observable right away.
+  quoteKeepAliveProvider.overrideWithValue(quoteKeepAlive),
 ];

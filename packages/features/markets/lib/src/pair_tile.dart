@@ -31,7 +31,7 @@ class PairTile extends ConsumerWidget {
                 values: [for (final p in history) p.toDouble()],
                 color: history.first <= history.last ? tokens.up : tokens.down,
               )
-            : const SizedBox.shrink(),
+            : const Skeleton(width: 64, height: 20, radius: 4),
       ),
       trailing: switch (quote) {
         AsyncData(:final value) => _QuoteColumn(quote: value),
@@ -39,10 +39,14 @@ class PairTile extends ConsumerWidget {
           message: '$error',
           child: Icon(Icons.error_outline, color: theme.colorScheme.error),
         ),
-        _ => const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        _ => const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Skeleton(width: 84, height: 16),
+            SizedBox(height: 6),
+            Skeleton(width: 48, height: 12),
+          ],
         ),
       },
     );
