@@ -77,7 +77,8 @@ dart pub global activate melos
 melos bootstrap
 melos run generate     # build_runner in every package that needs it
 melos run analyze
-melos run test
+melos run test           # unit + widget tests
+melos run test:golden    # golden tests, macOS only (CI renders them on macOS too)
 cp env.example.json env.json   # fill in keys, never commit
 cd apps/mobile && fvm flutter run --dart-define-from-file=../../env.json
 ```
