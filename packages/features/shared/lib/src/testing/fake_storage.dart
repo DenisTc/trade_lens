@@ -173,3 +173,19 @@ final class RecordingErrorReporter implements ErrorReporter {
   void report(Object error, {StackTrace? stackTrace, String? hint}) =>
       reports.add((error, hint));
 }
+
+/// In-memory [SecretStore] for tests; never touches the keychain.
+final class FakeSecretStore implements SecretStore {
+  FakeSecretStore([Map<String, String>? initial]) : values = {...?initial};
+
+  final Map<String, String> values;
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async => values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => values.remove(key);
+}

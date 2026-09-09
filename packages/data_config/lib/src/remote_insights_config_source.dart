@@ -137,6 +137,7 @@ final class RemoteInsightsConfigSource implements InsightsConfigSource {
         defaults: {
           InsightsConfigKeys.insightsScreen: _defaults.insightsScreenJson,
           InsightsConfigKeys.aiInsightsEnabled: _defaults.aiInsightsEnabled,
+          InsightsConfigKeys.aiModel: _defaults.aiModelJson,
         },
       );
     } on Object catch (e) {
@@ -166,6 +167,7 @@ final class RemoteInsightsConfigSource implements InsightsConfigSource {
       insightsScreenJson: _client.getString(InsightsConfigKeys.insightsScreen),
       aiInsightsEnabled: _client.getBool(InsightsConfigKeys.aiInsightsEnabled),
       source: origin,
+      aiModelJson: _client.getString(InsightsConfigKeys.aiModel),
     );
     if (next == current) return;
     _current = next;

@@ -2,6 +2,7 @@ import 'package:features_shared/features_shared.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradelens/app.dart';
+import 'package:tradelens/di/ai_di.dart';
 import 'package:tradelens/di/config_di.dart';
 import 'package:tradelens/di/market_di.dart';
 import 'package:tradelens/di/socket_lifecycle.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
           ...storageOverrides(),
           ...marketOverrides(),
           ...configOverrides(firebase: firebase),
+          ...aiOverrides(),
         ],
         child: const SocketLifecycle(child: TradeLensApp()),
       ),

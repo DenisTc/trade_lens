@@ -18,9 +18,15 @@ class PairScreen extends ConsumerWidget {
     required this.instrument,
     super.key,
     this.localTime = true,
+    this.onMoveSummary,
   });
 
   final Instrument instrument;
+
+  /// Opens the AI move summary; null hides the button (flag off, or a
+  /// build without the feature). The feature itself lives elsewhere, so
+  /// this package never depends on the Claude client.
+  final VoidCallback? onMoveSummary;
 
   /// Time axis in local time; golden tests pass false.
   final bool localTime;
@@ -54,6 +60,16 @@ class PairScreen extends ConsumerWidget {
         ),
         children: [
           _PriceHeader(instrument: instrument),
+          if (onMoveSummary != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: OutlinedButton.icon(
+                key: const Key('move_summary'),
+                onPressed: onMoveSummary,
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(l10n.aiSummaryTitle),
+              ),
+            ),
           if (capabilities.intervals.length > 1)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
