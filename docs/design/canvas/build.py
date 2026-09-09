@@ -14,11 +14,18 @@ FONTS = Path(sys.argv[2]).read_text()
 DARK = dict(bg='#0C1117', surface='#121922', raised='#1A2330', line='#243040',
             text='#E8EEF4', muted='#8A9AAB', accent='#F2B94A', up='#3DDC97',
             down='#FF6B5E', onaccent='#14110A', upbg='rgba(61,220,151,0.12)',
-            downbg='rgba(255,107,94,0.12)', accbg='rgba(242,185,74,0.14)')
-LIGHT = dict(bg='#F6F4EF', surface='#FFFFFF', raised='#EDEAE2', line='#DCD7CC',
-             text='#141A22', muted='#5E6B78', accent='#C98A16', up='#178A5A',
-             down='#D3473A', onaccent='#FFFFFF', upbg='rgba(23,138,90,0.12)',
-             downbg='rgba(211,71,58,0.12)', accbg='rgba(201,138,22,0.14)')
+            downbg='rgba(255,107,94,0.12)', accbg='rgba(242,185,74,0.14)',
+            glass='rgba(18,25,34,0.55)', glassline='rgba(255,255,255,0.12)', glasshi='rgba(255,255,255,0.10)', shadow='rgba(0,0,0,0.45)')
+LIGHT = dict(bg='#F2F5FA', surface='#FFFFFF', raised='#E5EBF5', line='#D3DCEA',
+             text='#0F172A', muted='#5B6B82', accent='#C7880E', up='#12925C',
+             down='#D64545', onaccent='#FFFFFF', upbg='rgba(18,146,92,0.12)',
+             downbg='rgba(214,69,69,0.12)', accbg='rgba(199,136,14,0.14)',
+             glass='rgba(255,255,255,0.62)', glassline='rgba(15,23,42,0.10)', glasshi='rgba(255,255,255,0.9)', shadow='rgba(15,23,42,0.14)')
+NEON = dict(bg='#07070C', surface='#0F0F18', raised='#171726', line='#232338',
+            text='#F2F2FF', muted='#7E7E9A', accent='#00E5FF', up='#3DF5A0',
+            down='#FF2E88', onaccent='#06060A', upbg='rgba(61,245,160,0.14)',
+            downbg='rgba(255,46,136,0.14)', accbg='rgba(0,229,255,0.14)',
+            glass='rgba(15,15,26,0.55)', glassline='rgba(0,229,255,0.22)', glasshi='rgba(255,255,255,0.10)', shadow='rgba(0,229,255,0.18)')
 
 SANS = "'Onest', 'Avenir Next', 'Helvetica Neue', system-ui, sans-serif"
 MONO = "'IBM Plex Mono', 'SF Mono', Menlo, monospace"
@@ -53,10 +60,14 @@ def icon(name, color, size=24):
       'source': '<path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"></path><circle cx="12" cy="12" r="9"></circle>',
       'language': '<path d="M4 5h10M9 3v2M11.5 5c-.7 4-3.5 8-7.5 10M6.5 9c1.5 3 4 5 7 6M13 21l4-10 4 10M14.5 17h5"></path>',
       'about': '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.5"></path>',
+      'theme': '<circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 1 0 18z" fill="CURRENT"></path>',
+      'link': '<path d="M14 5h5v5M19 5l-8 8M10 6H6a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4"></path>',
+      'check': '<path d="M5 12.5l4.5 4.5L19 7.5"></path>',
       'plus': '<path d="M12 5v14M5 12h14"></path>',
       'star': '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"></path>',
       'x': '<path d="M6 6l12 12M18 6L6 18"></path>',
     }[name]
+    p = p.replace('CURRENT', color)
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" '
             f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{p}</svg>')
 
@@ -106,10 +117,13 @@ def tabbar(t, active):
         on = key == active
         col = t['accent'] if on else t['muted']
         cells.append(
-            f'<div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 0 0; min-height: 44px;">'
-            f'{icon(key, col)}<span style="font-size: 11px; font-weight: {600 if on else 500}; color: {col};">{label}</span></div>')
-    return (f'<div style="margin-top: auto; height: 84px; border-top: 1px solid {t["line"]}; background: {t["surface"]}; '
-            f'display: flex; flex-direction: row; align-items: flex-start; padding: 0 12px 34px 12px; box-sizing: border-box;">'
+            f'<div style="flex-grow: 1; height: 52px; border-radius: 26px; background: {t["accbg"] if on else "transparent"}; '
+            f'display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;">'
+            f'{icon(key, col, 22)}<span style="font-size: 12px; font-weight: {600 if on else 500}; color: {col};">{label}</span></div>')
+    return (f'<div style="position: absolute; left: 16px; right: 16px; bottom: 34px; height: 64px; border-radius: 32px; '
+            f'background: {t["glass"]}; -webkit-backdrop-filter: blur(28px) saturate(1.7); backdrop-filter: blur(28px) saturate(1.7); '
+            f'border: 1px solid {t["glassline"]}; box-shadow: 0 12px 32px {t["shadow"]}, inset 0 1px 0 {t["glasshi"]}; '
+            f'display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 6px; box-sizing: border-box;">'
             + ''.join(cells) + '</div>')
 
 def chip(t, text, kind):
@@ -169,7 +183,7 @@ def skeleton_row(t):
 
 # ---------- screens ----------
 def markets(t, light=False):
-    rows = ''.join(pair_row(t, *p) for p in PAIRS) + skeleton_row(t)
+    rows = ''.join(pair_row(t, *p) for p in PAIRS) + skeleton_row(t) + skeleton_row(t)
     sub = (f'<div style="height: 36px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; '
            f'padding: 0 20px; box-sizing: border-box; border-bottom: 1px solid {t["line"]};">'
            f'<span style="font-size: 12px; font-weight: 500; color: {t["muted"]}; letter-spacing: 0.02em;">Топ-20 по обороту · USDT</span>'
@@ -290,8 +304,8 @@ def portfolio(t):
     ])
     return html_doc(t, body, 'Portfolio')
 
-def settings(t):
-    items = [('source', 'Источник данных', 'Автоматически · Binance'), ('language', 'Язык', 'Русский'), ('about', 'О приложении', 'Источники, политика, версия')]
+def settings(t, theme_label='Стандартная · как в системе'):
+    items = [('theme', 'Оформление', theme_label), ('source', 'Источник данных', 'Автоматически · Binance'), ('language', 'Язык', 'Русский'), ('about', 'О приложении', 'Источники, политика, версия')]
     rows = []
     for ic, title, val in items:
         rows.append(f'<div style="height: 64px; display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 0 20px; border-bottom: 1px solid {t["line"]};">'
@@ -302,11 +316,56 @@ def settings(t):
         header(t, f'<span style="font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Настройки</span>', ''),
         f'<div style="margin-top: 8px; border-top: 1px solid {t["line"]}; display: flex; flex-direction: column;">{"".join(rows)}</div>',
         f'<div style="padding: 20px; font-size: 12px; color: {t["muted"]}; line-height: 1.5;">Котировки приходят напрямую с биржи. Портфель и настройки хранятся только на этом устройстве.</div>',
-        f'<div style="margin-top: auto; padding: 0 20px 20px 20px; display: flex; flex-direction: row; align-items: center; gap: 10px;">{ring(20, t["muted"])}'
-        f'<span class="mono" style="font-size: 11px; color: {t["muted"]};">TradeLens 0.1.0 (5)</span></div>',
         tabbar(t, 'settings'),
     ])
     return html_doc(t, body, 'Settings')
+
+def mini(t, w=96, h=64):
+    """Tiny screen preview for the theme picker."""
+    row = lambda up: (f'<div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; height: 12px;">'
+                      f'<div style="width: 22px; height: 5px; border-radius: 3px; background: {t["text"]}; opacity: 0.8;"></div>'
+                      f'<div style="width: 18px; height: 5px; border-radius: 3px; background: {t["up"] if up else t["down"]};"></div></div>')
+    return (f'<div style="width: {w}px; height: {h}px; border-radius: 10px; background: {t["bg"]}; border: 1px solid {t["line"]}; padding: 8px 10px; box-sizing: border-box; display: flex; flex-direction: column; gap: 3px; overflow: hidden;">'
+            f'<div style="display: flex; flex-direction: row; align-items: center; gap: 4px; height: 10px;">{ring(9, t["accent"], inner=False, gap=False)}<div style="width: 26px; height: 5px; border-radius: 3px; background: {t["text"]};"></div></div>'
+            f'{row(True)}{row(False)}{row(True)}</div>')
+
+def appearance(t, chosen='system'):
+    opts = [('system', 'Как в системе', 'Стандартная: тёмная или светлая вслед за телефоном', [DARK, LIGHT]),
+            ('dark', 'Тёмная', 'Стандартная, всегда тёмная', [DARK]),
+            ('light', 'Светлая', 'Стандартная, всегда светлая', [LIGHT]),
+            ('neon', 'Неоновая', 'Тёмная, циан и малина. Для тех, кто смотрит ночью', [NEON])]
+    rows = []
+    for key, title, sub, pals in opts:
+        on = key == chosen
+        mark = (f'<div style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 12px; background: {t["accent"]}; display: flex; align-items: center; justify-content: center;">{icon("check", t["onaccent"], 16)}</div>'
+                if on else f'<div style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 12px; border: 1.5px solid {t["line"]};"></div>')
+        rows.append(f'<div style="min-height: 88px; display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid {t["line"]}; box-sizing: border-box;">'
+                    f'<div style="display: flex; flex-direction: row; gap: 4px;">{"".join(mini(p, 96 if len(pals) == 1 else 46) for p in pals)}</div>'
+                    f'<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 16px; font-weight: 500;">{title}</span><span style="font-size: 12px; color: {t["muted"]}; line-height: 1.35;">{sub}</span></div>{mark}</div>')
+    body = phone(t, [
+        header(t, f'<div style="display: flex; flex-direction: row; align-items: center; gap: 4px; margin-left: -12px;">{iconbtn(t, "back")}<span style="font-size: 20px; font-weight: 600;">Оформление</span></div>', ''),
+        f'<div style="margin-top: 8px; border-top: 1px solid {t["line"]}; display: flex; flex-direction: column;">{"".join(rows)}</div>',
+    ])
+    return html_doc(t, body, 'Appearance')
+
+def about(t):
+    li = lambda title, sub, ic='link': (f'<div style="min-height: 64px; display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid {t["line"]}; box-sizing: border-box;">'
+                                       f'<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 500;">{title}</span><span style="font-size: 12px; color: {t["muted"]}; line-height: 1.35;">{sub}</span></div>{icon(ic, t["muted"], 18)}</div>')
+    body = phone(t, [
+        header(t, f'<div style="display: flex; flex-direction: row; align-items: center; gap: 4px; margin-left: -12px;">{iconbtn(t, "back")}<span style="font-size: 20px; font-weight: 600;">О приложении</span></div>', ''),
+        f'<div style="padding: 8px 20px 6px 20px; font-size: 12px; font-weight: 500; color: {t["muted"]}; letter-spacing: 0.02em;">Источники данных · условия проверены 05.09.2026</div>',
+        li('Binance', 'Котировки, свечи, стакан и сделки. Условия API'),
+        li('CoinGecko', 'Запасной источник цен. Условия API'),
+        f'<div style="padding: 20px 20px 6px 20px; font-size: 12px; font-weight: 500; color: {t["muted"]}; letter-spacing: 0.02em;">Данные</div>',
+        li('Что покидает устройство', 'Только запросы котировок к выбранному источнику. Портфель и настройки остаются на телефоне', 'about'),
+        li('Политика конфиденциальности', 'denistc.github.io/trade_lens/privacy-policy'),
+        li('Условия использования', 'denistc.github.io/trade_lens/terms-of-use'),
+        f'<div style="margin-top: auto; padding: 0 20px 44px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px;">{ring(28, t["accent"])}'
+        f'<span style="font-size: 14px; font-weight: 600;">TradeLens</span>'
+        f'<span class="mono" style="font-size: 12px; color: {t["muted"]};">0.1.0 (5) · App Store</span>'
+        f'<span class="mono" style="font-size: 11px; color: {t["muted"]};">github.com/DenisTc/trade_lens</span></div>',
+    ])
+    return html_doc(t, body, 'About')
 
 def app_icon(size, bg='#0C1117'):
     r = size * 0.225; c = size / 2; rr = size * 0.33; sw = size * 0.075
@@ -350,10 +409,12 @@ def tokens_board(t):
              f'<div style="height: 32px; padding: 0 12px; display: flex; align-items: center; border-radius: 16px; color: {t["muted"]}; font-size: 13px; font-weight: 600;">4ч</div>'
              f'<div style="height: 44px; padding: 0 20px; border-radius: 14px; background: {t["accent"]}; color: {t["onaccent"]}; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;">{icon("plus", t["onaccent"], 18)}Добавить позицию</div>'
              f'{ring(26, t["accent"])}{sparkline(walk(11, 24, 100, 0.02), t["up"])}{sparkline(walk(13, 24, 100, 0.02), t["down"])}</div>')
-    body = (f'<div style="width: 620px; height: 1180px; background: {t["bg"]}; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 22px;">'
+    neon_sw = ''.join(sw(k, v) for k, v in [('bg', NEON['bg']), ('surface', NEON['surface']), ('raised', NEON['raised']), ('line', NEON['line']), ('text', NEON['text']), ('muted', NEON['muted']), ('accent', NEON['accent']), ('up', NEON['up']), ('down', NEON['down'])])
+    body = (f'<div style="width: 620px; height: 1420px; background: {t["bg"]}; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 22px;">'
             f'<span style="font-size: 22px; font-weight: 600;">Токены «Оптика»</span>'
             f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Тёмная тема</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{dark_sw}</div></div>'
-            f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Светлая тема</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{light_sw}</div></div>'
+            f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Светлая тема · бело-синяя, без бежевого</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{light_sw}</div></div>'
+            f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Неоновая тема</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{neon_sw}</div></div>'
             f'<div style="display: flex; flex-direction: column;">{typ_html}</div>'
             f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Компоненты · радиусы 6 / 12 / 14 / 16 · строки 64 · отступ 20</span>{comps}</div></div>')
     return html_doc(t, body, 'Tokens')
@@ -396,28 +457,29 @@ def direction_neon():
 
 files = {
     'Main.dc.html': markets(DARK), 'Pair.dc.html': pair(DARK), 'Portfolio.dc.html': portfolio(DARK),
-    'Settings.dc.html': settings(DARK), 'MarketsLight.dc.html': markets(LIGHT, True),
+    'Settings.dc.html': settings(DARK), 'Appearance.dc.html': appearance(DARK), 'About.dc.html': about(DARK),
+    'MarketsLight.dc.html': markets(LIGHT, True), 'PairLight.dc.html': pair(LIGHT), 'PortfolioLight.dc.html': portfolio(LIGHT),
+    'MarketsNeon.dc.html': markets(NEON), 'PairNeon.dc.html': pair(NEON), 'PortfolioNeon.dc.html': portfolio(NEON),
     'Icon.dc.html': icon_board(DARK), 'Tokens.dc.html': tokens_board(DARK),
-    'DirectionEditorial.dc.html': direction_editorial(), 'DirectionNeon.dc.html': direction_neon(),
 }
 for k, v in files.items(): (OUT / k).write_text(v)
+for stale in ['DirectionEditorial.dc.html', 'DirectionNeon.dc.html']:
+    (OUT / stale).unlink(missing_ok=True)
 
+def ab(f, title, x, y, w=390, h=844): return {"file": f, "title": title, "x": x, "y": y, "w": w, "h": h}
 canvas = {
   "artboards": [
-    {"file": "Main.dc.html", "title": "Рынки · тёмная", "x": 0, "y": 0, "w": 390, "h": 844},
-    {"file": "Pair.dc.html", "title": "Пара · тёмная", "x": 480, "y": 0, "w": 390, "h": 844},
-    {"file": "Portfolio.dc.html", "title": "Портфель · тёмная", "x": 960, "y": 0, "w": 390, "h": 844},
-    {"file": "Settings.dc.html", "title": "Настройки · тёмная", "x": 1440, "y": 0, "w": 390, "h": 844},
-    {"file": "MarketsLight.dc.html", "title": "Рынки · светлая", "x": 1920, "y": 0, "w": 390, "h": 844},
-    {"file": "Icon.dc.html", "title": "Иконка", "x": 0, "y": 1000, "w": 900, "h": 420},
-    {"file": "Tokens.dc.html", "title": "Токены", "x": 980, "y": 1000, "w": 620, "h": 1180},
-    {"file": "DirectionEditorial.dc.html", "title": "Альтернатива A · Editorial", "x": 0, "y": 2320, "w": 390, "h": 844},
-    {"file": "DirectionNeon.dc.html", "title": "Альтернатива B · Neon grid", "x": 480, "y": 2320, "w": 390, "h": 844},
+    ab("Main.dc.html", "Рынки · стандартная тёмная", 0, 0), ab("Pair.dc.html", "Пара", 480, 0), ab("Portfolio.dc.html", "Портфель", 960, 0),
+    ab("Settings.dc.html", "Настройки", 1440, 0), ab("Appearance.dc.html", "Оформление", 1920, 0), ab("About.dc.html", "О приложении", 2400, 0),
+    ab("MarketsLight.dc.html", "Рынки · стандартная светлая", 0, 1000), ab("PairLight.dc.html", "Пара · светлая", 480, 1000), ab("PortfolioLight.dc.html", "Портфель · светлая", 960, 1000),
+    ab("MarketsNeon.dc.html", "Рынки · неоновая", 1440, 1000), ab("PairNeon.dc.html", "Пара · неоновая", 1920, 1000), ab("PortfolioNeon.dc.html", "Портфель · неоновая", 2400, 1000),
+    ab("Icon.dc.html", "Иконка", 0, 2000, 900, 420), ab("Tokens.dc.html", "Токены", 980, 2000, 620, 1420),
   ],
   "annotations": [
-    {"id": "brief", "x": 0, "y": -220, "w": 560, "text": "Направление «Оптика». Единственная метафора — кольцо объектива: иконка, индикатор соединения, выбранный интервал, кроссхейр.\nOnest для текста, IBM Plex Mono для всех чисел. Один акцент (янтарь), рост и падение одной светлоты, никаких градиентов.\nШапка Рынков: вордмарк + статус + поиск по тапу вместо заголовка и поля."},
-    {"id": "alts", "x": 0, "y": 2200, "w": 560, "text": "Две альтернативы низкой детализации, чтобы было с чем сравнить.\nA · Editorial: газетная типографика, бумага, без чипов. Спокойно и необычно, но хуже читается в тёмной комнате и не про «живые» данные.\nB · Neon grid: карточки-плитки, неон. Эффектно на превью, но утомляет за час и выглядит как все крипто-приложения 2022 года."},
-    {"id": "icon-note", "x": 0, "y": 1470, "w": 320, "text": "Иконка и токены — готовы к переносу во Flutter: tokens.dart + flutter_launcher_icons."}
+    {"id": "brief", "x": 0, "y": -240, "w": 620, "text": "Направление «Оптика», вторая итерация.\nНижнее меню — плавающее стекло: размытие фона, тонкая грань, подсветка активной вкладки; список уходит под него.\nТри темы: Стандартная (тёмная/светлая, вслед за системой или вручную) и Неоновая (только тёмная). Выбор — Настройки → Оформление.\nВерсия только на экране «О приложении», по центру внизу."},
+    {"id": "light", "x": 0, "y": 950, "w": 420, "text": "Светлая: холодная бело-синяя база (#F2F5FA / #E5EBF5), жёлтый акцент темнее, чтобы держал контраст на белом. Бежевого нет."},
+    {"id": "neon", "x": 1440, "y": 950, "w": 420, "text": "Неоновая: циан как акцент, неоновая зелень для роста, малина для падения. Стекло меню подсвечено цианом."},
+    {"id": "icon-note", "x": 0, "y": 2470, "w": 320, "text": "Иконка без изменений. Токены — три палитры для tokens.dart."}
   ],
   "launch": {"view": "canvas"}
 }
