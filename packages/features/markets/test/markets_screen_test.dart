@@ -24,7 +24,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(app());
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(find.byType(PairTileSkeleton), findsWidgets);
 
     await tester.pump();
     expect(find.text('BTC/USDT'), findsOneWidget);
@@ -41,6 +41,8 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pump();
 
+    await tester.tap(find.byKey(const Key('markets_search_toggle')));
+    await tester.pump();
     await tester.enterText(find.byKey(const Key('markets_search')), 'eth');
     await tester.pump();
     expect(find.text('ETH/USDT'), findsOneWidget);
@@ -78,6 +80,11 @@ void main() {
   testWidgets('attribution badge shows the source text', (tester) async {
     await tester.pumpWidget(app());
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Data: Fake'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
     expect(find.text('Data: Fake'), findsOneWidget);
   });
 

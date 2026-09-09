@@ -332,8 +332,7 @@ def mini(t, w=96, h=64):
 def appearance(t, chosen='system'):
     opts = [('system', 'Как в системе', 'Стандартная: тёмная или светлая вслед за телефоном', [DARK, LIGHT]),
             ('dark', 'Тёмная', 'Стандартная, всегда тёмная', [DARK]),
-            ('light', 'Светлая', 'Стандартная, всегда светлая', [LIGHT]),
-            ('neon', 'Неоновая', 'Тёмная, циан и малина. Для тех, кто смотрит ночью', [NEON])]
+            ('light', 'Светлая', 'Стандартная, всегда светлая', [LIGHT])]
     rows = []
     for key, title, sub, pals in opts:
         on = key == chosen
@@ -410,11 +409,10 @@ def tokens_board(t):
              f'<div style="height: 44px; padding: 0 20px; border-radius: 14px; background: {t["accent"]}; color: {t["onaccent"]}; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;">{icon("plus", t["onaccent"], 18)}Добавить позицию</div>'
              f'{ring(26, t["accent"])}{sparkline(walk(11, 24, 100, 0.02), t["up"])}{sparkline(walk(13, 24, 100, 0.02), t["down"])}</div>')
     neon_sw = ''.join(sw(k, v) for k, v in [('bg', NEON['bg']), ('surface', NEON['surface']), ('raised', NEON['raised']), ('line', NEON['line']), ('text', NEON['text']), ('muted', NEON['muted']), ('accent', NEON['accent']), ('up', NEON['up']), ('down', NEON['down'])])
-    body = (f'<div style="width: 620px; height: 1420px; background: {t["bg"]}; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 22px;">'
+    body = (f'<div style="width: 620px; height: 1180px; background: {t["bg"]}; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 22px;">'
             f'<span style="font-size: 22px; font-weight: 600;">Токены «Оптика»</span>'
             f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Тёмная тема</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{dark_sw}</div></div>'
             f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Светлая тема · бело-синяя, без бежевого</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{light_sw}</div></div>'
-            f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Неоновая тема</span><div style="display: flex; flex-direction: row; gap: 10px; flex-wrap: wrap;">{neon_sw}</div></div>'
             f'<div style="display: flex; flex-direction: column;">{typ_html}</div>'
             f'<div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-size: 12px; font-weight: 500; color: {t["muted"]};">Компоненты · радиусы 6 / 12 / 14 / 16 · строки 64 · отступ 20</span>{comps}</div></div>')
     return html_doc(t, body, 'Tokens')
@@ -459,11 +457,10 @@ files = {
     'Main.dc.html': markets(DARK), 'Pair.dc.html': pair(DARK), 'Portfolio.dc.html': portfolio(DARK),
     'Settings.dc.html': settings(DARK), 'Appearance.dc.html': appearance(DARK), 'About.dc.html': about(DARK),
     'MarketsLight.dc.html': markets(LIGHT, True), 'PairLight.dc.html': pair(LIGHT), 'PortfolioLight.dc.html': portfolio(LIGHT),
-    'MarketsNeon.dc.html': markets(NEON), 'PairNeon.dc.html': pair(NEON), 'PortfolioNeon.dc.html': portfolio(NEON),
     'Icon.dc.html': icon_board(DARK), 'Tokens.dc.html': tokens_board(DARK),
 }
 for k, v in files.items(): (OUT / k).write_text(v)
-for stale in ['DirectionEditorial.dc.html', 'DirectionNeon.dc.html']:
+for stale in ['DirectionEditorial.dc.html', 'DirectionNeon.dc.html', 'MarketsNeon.dc.html', 'PairNeon.dc.html', 'PortfolioNeon.dc.html']:
     (OUT / stale).unlink(missing_ok=True)
 
 def ab(f, title, x, y, w=390, h=844): return {"file": f, "title": title, "x": x, "y": y, "w": w, "h": h}
@@ -472,14 +469,12 @@ canvas = {
     ab("Main.dc.html", "Рынки · стандартная тёмная", 0, 0), ab("Pair.dc.html", "Пара", 480, 0), ab("Portfolio.dc.html", "Портфель", 960, 0),
     ab("Settings.dc.html", "Настройки", 1440, 0), ab("Appearance.dc.html", "Оформление", 1920, 0), ab("About.dc.html", "О приложении", 2400, 0),
     ab("MarketsLight.dc.html", "Рынки · стандартная светлая", 0, 1000), ab("PairLight.dc.html", "Пара · светлая", 480, 1000), ab("PortfolioLight.dc.html", "Портфель · светлая", 960, 1000),
-    ab("MarketsNeon.dc.html", "Рынки · неоновая", 1440, 1000), ab("PairNeon.dc.html", "Пара · неоновая", 1920, 1000), ab("PortfolioNeon.dc.html", "Портфель · неоновая", 2400, 1000),
-    ab("Icon.dc.html", "Иконка", 0, 2000, 900, 420), ab("Tokens.dc.html", "Токены", 980, 2000, 620, 1420),
+    ab("Icon.dc.html", "Иконка", 0, 2000, 900, 420), ab("Tokens.dc.html", "Токены", 980, 2000, 620, 1180),
   ],
   "annotations": [
-    {"id": "brief", "x": 0, "y": -240, "w": 620, "text": "Направление «Оптика», вторая итерация.\nНижнее меню — плавающее стекло: размытие фона, тонкая грань, подсветка активной вкладки; список уходит под него.\nТри темы: Стандартная (тёмная/светлая, вслед за системой или вручную) и Неоновая (только тёмная). Выбор — Настройки → Оформление.\nВерсия только на экране «О приложении», по центру внизу."},
+    {"id": "brief", "x": 0, "y": -240, "w": 620, "text": "Направление «Оптика», вторая итерация.\nНижнее меню — плавающее стекло: размытие фона, тонкая грань, подсветка активной вкладки; список уходит под него.\nТемы: тёмная и светлая, вслед за системой или вручную. Выбор — Настройки → Оформление.\nВерсия только на экране «О приложении», по центру внизу."},
     {"id": "light", "x": 0, "y": 950, "w": 420, "text": "Светлая: холодная бело-синяя база (#F2F5FA / #E5EBF5), жёлтый акцент темнее, чтобы держал контраст на белом. Бежевого нет."},
-    {"id": "neon", "x": 1440, "y": 950, "w": 420, "text": "Неоновая: циан как акцент, неоновая зелень для роста, малина для падения. Стекло меню подсвечено цианом."},
-    {"id": "icon-note", "x": 0, "y": 2470, "w": 320, "text": "Иконка без изменений. Токены — три палитры для tokens.dart."}
+    {"id": "icon-note", "x": 0, "y": 2470, "w": 320, "text": "Токены — две палитры для tokens.dart."}
   ],
   "launch": {"view": "canvas"}
 }

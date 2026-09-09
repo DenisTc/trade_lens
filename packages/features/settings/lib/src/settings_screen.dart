@@ -3,15 +3,18 @@ import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Hub: one row per topic, each opening its own screen.
+/// Hub: one row per topic, each opening its own screen. The version lives
+/// on the About screen only.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({
     required this.onOpenDataSource,
     required this.onOpenLanguage,
     required this.onOpenAbout,
     super.key,
+    this.onOpenAppearance,
   });
 
+  final VoidCallback? onOpenAppearance;
   final VoidCallback onOpenDataSource;
   final VoidCallback onOpenLanguage;
   final VoidCallback onOpenAbout;
@@ -23,38 +26,62 @@ class SettingsScreen extends ConsumerWidget {
         ref.watch(sourceChoiceSettingProvider).value ?? SourceChoice.auto;
     final source = ref.watch(marketDataSourceProvider).value;
     final locale = ref.watch(appLocaleSettingProvider).value;
+    final mode = ref.watch(appThemeSettingProvider).value ?? ThemeMode.system;
+    final t = context.tokens;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.tabSettings)),
-      body: ListView(
+      body: Column(
         children: [
-          ListTile(
-            key: const Key('settings_source'),
-            leading: const Icon(Icons.travel_explore_outlined),
-            title: Text(l10n.settingsSource),
-            subtitle: Text(
-              choice == SourceChoice.auto
-                  ? '${l10n.settingsSourceAuto} · ${source?.attribution ?? '…'}'
-                  : source?.attribution ?? '…',
+          ScreenHeader(title: l10n.tabSettings),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.only(
+                top: 8,
+                bottom: MediaQuery.paddingOf(context).bottom + 16,
+              ),
+              children: [
+                Divider(color: t.line),
+                if (onOpenAppearance != null)
+                  SettingsRow(
+                    key: const Key('settings_appearance'),
+                    icon: Icons.contrast,
+                    title: l10n.appearance,
+                    subtitle: themeModeLabel(l10n, mode),
+                    onTap: onOpenAppearance,
+                  ),
+                SettingsRow(
+                  key: const Key('settings_source'),
+                  icon: Icons.public,
+                  title: l10n.settingsSource,
+                  subtitle: choice == SourceChoice.auto
+                      ? '${l10n.settingsSourceAuto} · ${source?.attribution ?? '…'}'
+                      : source?.attribution ?? '…',
+                  onTap: onOpenDataSource,
+                ),
+                SettingsRow(
+                  key: const Key('settings_language'),
+                  icon: Icons.translate,
+                  title: l10n.language,
+                  subtitle: locale == null
+                      ? l10n.languageSystem
+                      : languageName(locale),
+                  onTap: onOpenLanguage,
+                ),
+                SettingsRow(
+                  key: const Key('settings_about'),
+                  icon: Icons.info_outline,
+                  title: l10n.about,
+                  onTap: onOpenAbout,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    l10n.settingsNote,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(height: 1.5),
+                  ),
+                ),
+              ],
             ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onOpenDataSource,
-          ),
-          ListTile(
-            key: const Key('settings_language'),
-            leading: const Icon(Icons.language),
-            title: Text(l10n.language),
-            subtitle: Text(
-              locale == null ? l10n.languageSystem : languageName(locale),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onOpenLanguage,
-          ),
-          ListTile(
-            key: const Key('settings_about'),
-            leading: const Icon(Icons.info_outline),
-            title: Text(l10n.about),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onOpenAbout,
           ),
         ],
       ),
@@ -67,3 +94,10 @@ String languageName(Locale locale) => switch (locale.languageCode) {
   'ru' => 'Русский',
   _ => 'English',
 };
+
+String themeModeLabel(SharedLocalizations l10n, ThemeMode mode) =>
+    switch (mode) {
+      ThemeMode.system => l10n.themeSystem,
+      ThemeMode.dark => l10n.themeDark,
+      ThemeMode.light => l10n.themeLight,
+    };

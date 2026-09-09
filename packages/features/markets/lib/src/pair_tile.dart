@@ -4,8 +4,9 @@ import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// One row of the markets list. Watches the live quote of its instrument
-/// and renders the three `AsyncValue` states explicitly.
+/// One 64 px row of the markets list: ticker and name, a sparkline in the
+/// middle, price and 24 h chip on the right. Watches the live quote of its
+/// instrument and renders the three `AsyncValue` states explicitly.
 class PairTile extends ConsumerWidget {
   const PairTile({required this.instrument, super.key, this.onTap});
 
@@ -17,40 +18,151 @@ class PairTile extends ConsumerWidget {
     final quote = ref.watch(quoteProvider(instrument));
     final history = ref.watch(quoteHistoryProvider(instrument));
     final theme = Theme.of(context);
-    final tokens = context.tokens;
+    final t = context.tokens;
 
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      title: Text(instrument.displayName),
-      subtitle: Text(instrument.base.name),
-      leading: SizedBox(
-        width: 64,
-        height: 28,
-        child: history.length >= 2
-            ? Sparkline(
-                values: [for (final p in history) p.toDouble()],
-                color: history.first <= history.last ? tokens.up : tokens.down,
-              )
-            : const Skeleton(width: 64, height: 20, radius: 4),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 64),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 108,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PairName(instrument: instrument),
+                    const SizedBox(height: 3),
+                    Text(
+                      instrument.base.name,
+                      style: theme.textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: SizedBox(
+                    width: 64,
+                    height: 24,
+                    child: history.length >= 2
+                        ? Sparkline(
+                            values: [for (final p in history) p.toDouble()],
+                            color: history.first <= history.last
+                                ? t.up
+                                : t.down,
+                          )
+                        : const Skeleton(width: 64, height: 20, radius: 4),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 112,
+                child: switch (quote) {
+                  AsyncData(:final value) => _QuoteColumn(quote: value),
+                  AsyncError(:final error) => Align(
+                    alignment: Alignment.centerRight,
+                    child: Tooltip(
+                      message: '$error',
+                      child: Icon(Icons.error_outline, color: t.down),
+                    ),
+                  ),
+                  _ => const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Skeleton(width: 76, height: 12),
+                      SizedBox(height: 8),
+                      Skeleton(width: 52, height: 18),
+                    ],
+                  ),
+                },
+              ),
+            ],
+          ),
+        ),
       ),
-      trailing: switch (quote) {
-        AsyncData(:final value) => _QuoteColumn(quote: value),
-        AsyncError(:final error) => Tooltip(
-          message: '$error',
-          child: Icon(Icons.error_outline, color: theme.colorScheme.error),
-        ),
-        _ => const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Skeleton(width: 84, height: 16),
-            SizedBox(height: 6),
-            Skeleton(width: 48, height: 12),
-          ],
-        ),
-      },
     );
   }
+}
+
+/// `BTC` in the title weight with `/USDT` smaller and muted. One `Text`
+/// so finders and screen readers see `BTC/USDT`.
+class PairName extends StatelessWidget {
+  const PairName({required this.instrument, super.key, this.size = 16});
+
+  final Instrument instrument;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text.rich(
+      TextSpan(
+        text: instrument.base.symbol,
+        style: theme.textTheme.titleMedium?.copyWith(fontSize: size),
+        children: [
+          TextSpan(
+            text: '/${instrument.quote}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: size * 0.8125,
+              color: context.tokens.muted,
+            ),
+          ),
+        ],
+      ),
+      maxLines: 1,
+    );
+  }
+}
+
+/// Row-shaped placeholder while the catalog loads.
+class PairTileSkeleton extends StatelessWidget {
+  const PairTileSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    height: 64,
+    child: Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 108,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Skeleton(width: 64, height: 12),
+                SizedBox(height: 8),
+                Skeleton(width: 44, height: 10),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Center(child: Skeleton(width: 64, height: 20, radius: 4)),
+          ),
+          SizedBox(
+            width: 112,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Skeleton(width: 76, height: 12),
+                SizedBox(height: 8),
+                Skeleton(width: 52, height: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _QuoteColumn extends StatelessWidget {
@@ -60,27 +172,20 @@ class _QuoteColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final locale = context.localeTag;
-    final change = MoneyFormat.changePct(quote.change24hPct, locale: locale);
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
           MoneyFormat.price(quote.price, locale: locale),
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          style: TradeLensText.mono(size: 15, color: context.tokens.text),
+          maxLines: 1,
         ),
-        if (change != null)
-          Text(
-            change,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: context.tokens.signed(quote.change24hPct?.sign),
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
+        if (quote.change24hPct != null) ...[
+          const SizedBox(height: 4),
+          ChangeChip(pct: quote.change24hPct),
+        ],
       ],
     );
   }

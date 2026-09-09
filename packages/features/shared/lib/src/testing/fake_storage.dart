@@ -103,9 +103,22 @@ final class FakeSettingsStore implements SettingsStore {
     _changes.add((key, null));
   }
 
+  /// Subscribes to changes synchronously on listen, so a write that
+  /// happens right after the first value is never missed (an `async*`
+  /// generator would only subscribe once the first event was consumed).
   @override
-  Stream<String?> watch(String key) async* {
-    yield values[key];
-    yield* _changes.stream.where((c) => c.$1 == key).map((c) => c.$2);
+  Stream<String?> watch(String key) {
+    late final StreamController<String?> controller;
+    StreamSubscription<(String, String?)>? sub;
+    controller = StreamController<String?>(
+      onListen: () {
+        controller.add(values[key]);
+        sub = _changes.stream
+            .where((c) => c.$1 == key)
+            .listen((c) => controller.add(c.$2));
+      },
+      onCancel: () => sub?.cancel(),
+    );
+    return controller.stream;
   }
 }

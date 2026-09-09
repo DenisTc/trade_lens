@@ -23,52 +23,90 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
   Widget build(BuildContext context) {
     final valuation = ref.watch(portfolioValuationProvider);
     final l10n = context.l10n;
+    final t = context.tokens;
+    final bottom = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.tabPortfolio)),
-      body: AsyncValueView<PortfolioValuation>(
-        value: valuation,
-        error: (error, _) => ErrorView(
-          error: error,
-          onRetry: () => ref.invalidate(portfolioValuationProvider),
-        ),
-        data: (v) {
-          final entries = [
-            for (final e in v.entries)
-              if (!_removing.contains(e.position.id)) e,
-          ];
-          if (entries.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  l10n.portfolioEmpty,
-                  key: const Key('portfolio_empty'),
-                  textAlign: TextAlign.center,
+      body: Column(
+        children: [
+          ScreenHeader(
+            title: l10n.tabPortfolio,
+            actions: [
+              if (valuation.value case final v?)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: StatusChip(
+                    key: const Key('valuation_status'),
+                    label: v.isLive
+                        ? l10n.valuationLive
+                        : l10n.valuationAsOf(
+                            MoneyFormat.time(v.asOf, locale: context.localeTag),
+                          ),
+                    color: v.isLive ? t.up : t.muted,
+                    active: v.isLive,
+                  ),
                 ),
-              ),
-            );
-          }
-          return ListView(
-            children: [
-              _TotalsHeader(valuation: v),
-              for (final entry in entries)
-                _PositionTile(
-                  key: ValueKey(entry.position.id),
-                  entry: entry,
-                  onDismissed: () => _remove(entry.position.id),
-                ),
-              const SizedBox(height: 88),
             ],
-          );
-        },
+          ),
+          Expanded(
+            child: AsyncValueView<PortfolioValuation>(
+              value: valuation,
+              error: (error, _) => ErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(portfolioValuationProvider),
+              ),
+              data: (v) {
+                final entries = [
+                  for (final e in v.entries)
+                    if (!_removing.contains(e.position.id)) e,
+                ];
+                return ListView(
+                  padding: EdgeInsets.only(bottom: bottom + 16),
+                  children: [
+                    _TotalsHeader(valuation: v, count: entries.length),
+                    if (entries.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+                        child: Text(
+                          l10n.portfolioEmpty,
+                          key: const Key('portfolio_empty'),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: t.muted),
+                        ),
+                      )
+                    else
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: t.line)),
+                        ),
+                        child: Column(
+                          children: [
+                            for (final entry in entries)
+                              _PositionTile(
+                                key: ValueKey(entry.position.id),
+                                entry: entry,
+                                onDismissed: () => _remove(entry.position.id),
+                              ),
+                          ],
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: FilledButton.icon(
+                        key: const Key('add_position'),
+                        onPressed: () => showPositionEditor(context),
+                        icon: const Icon(Icons.add, size: 20),
+                        label: Text(l10n.addPosition),
+                      ),
+                    ),
+                    const DataSourceBadge(),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('add_position'),
-        onPressed: () => showPositionEditor(context),
-        icon: const Icon(Icons.add),
-        label: Text(l10n.addPosition),
-      ),
-      bottomNavigationBar: const SafeArea(child: DataSourceBadge()),
     );
   }
 
@@ -85,9 +123,10 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 }
 
 class _TotalsHeader extends StatelessWidget {
-  const _TotalsHeader({required this.valuation});
+  const _TotalsHeader({required this.valuation, required this.count});
 
   final PortfolioValuation valuation;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
@@ -96,53 +135,64 @@ class _TotalsHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final tokens = context.tokens;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.total, style: theme.textTheme.labelLarge),
-          if (valuation.totals.isEmpty)
+          if (valuation.totals.isEmpty) ...[
+            Text(l10n.total, style: theme.textTheme.labelMedium),
+            const SizedBox(height: 8),
             Text(
               '—',
               key: const Key('portfolio_total'),
-              style: theme.textTheme.headlineMedium,
-            ),
-          for (final t in valuation.totals) ...[
-            Text(
-              '${MoneyFormat.price(t.total, locale: locale)} ${t.quote}',
-              key: Key(
-                'portfolio_total${valuation.totals.length == 1 ? '' : '_${t.quote}'}',
-              ),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-            Text(
-              '${l10n.pnl} ${t.pnl.sign < 0 ? '' : '+'}${MoneyFormat.price(t.pnl, locale: locale)}'
-              '${t.pnlPct == null ? '' : ' (${MoneyFormat.changePct(t.pnlPct, locale: locale)})'}',
-              key: Key('portfolio_pnl_${t.quote}'),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: tokens.signed(t.pnl.sign),
-              ),
+              style: theme.textTheme.displaySmall,
             ),
           ],
-          const SizedBox(height: 4),
+          for (final (i, t) in valuation.totals.indexed) ...[
+            if (i > 0) const SizedBox(height: 12),
+            Text(l10n.totalIn(t.quote), style: theme.textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                Text(
+                  MoneyFormat.price(t.total, locale: locale),
+                  key: Key(
+                    'portfolio_total${valuation.totals.length == 1 ? '' : '_${t.quote}'}',
+                  ),
+                  style: i == 0
+                      ? theme.textTheme.displaySmall
+                      : theme.textTheme.headlineMedium,
+                ),
+                ChangeChip(
+                  key: Key('portfolio_pnl_${t.quote}'),
+                  sign: t.pnl.sign,
+                  text:
+                      '${t.pnl.sign < 0 ? '−' : '+'}${MoneyFormat.price(t.pnl.abs(), locale: locale)}'
+                      '${t.pnlPct == null ? '' : ' · ${MoneyFormat.changePct(t.pnlPct, locale: locale)}'}',
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
           Row(
             children: [
-              Icon(
-                valuation.isLive ? Icons.bolt : Icons.schedule,
-                size: 14,
-                color: valuation.isLive ? tokens.up : tokens.warn,
-              ),
-              const SizedBox(width: 4),
               Text(
-                valuation.isLive
-                    ? l10n.valuationLive
-                    : l10n.valuationAsOf(
-                        MoneyFormat.time(valuation.asOf, locale: locale),
-                      ),
-                key: const Key('valuation_status'),
-                style: theme.textTheme.bodySmall?.copyWith(color: tokens.muted),
+                l10n.positionsCount(count),
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(width: 16),
+              Flexible(
+                child: Text(
+                  l10n.quotesUpdatedAt(
+                    MoneyFormat.time(valuation.asOf, locale: locale),
+                  ),
+                  style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               if (valuation.unavailableCount > 0) ...[
                 const SizedBox(width: 8),
@@ -182,53 +232,91 @@ class _PositionTile extends StatelessWidget {
       key: ValueKey('dismiss-${p.id}'),
       direction: DismissDirection.endToStart,
       background: ColoredBox(
-        color: theme.colorScheme.errorContainer,
+        color: tokens.downBg,
         child: Align(
           alignment: Alignment.centerRight,
           child: Padding(
             padding: const EdgeInsets.only(right: 24),
-            child: Icon(
-              Icons.delete_outline,
-              color: theme.colorScheme.onErrorContainer,
-            ),
+            child: Icon(Icons.delete_outline, color: tokens.down),
           ),
         ),
       ),
       onDismissed: (_) => onDismissed(),
-      child: ListTile(
+      child: InkWell(
         onTap: () => showPositionEditor(context, existing: p),
-        title: Text('${p.asset.symbol}/${p.quote}'),
-        subtitle: Text(
-          '${MoneyFormat.quantity(p.qty, locale: locale)} × '
-          '${MoneyFormat.price(p.avgPrice, locale: locale)}'
-          '${p.note == null || p.note!.isEmpty ? '' : ' · ${p.note}'}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: entry.isAvailable
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    MoneyFormat.price(entry.value!, locale: locale),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: tokens.line)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        text: p.asset.symbol,
+                        style: theme.textTheme.titleMedium,
+                        children: [
+                          TextSpan(
+                            text: '/${p.quote}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 13,
+                              color: tokens.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
                     ),
-                  ),
-                  Text(
-                    MoneyFormat.changePct(entry.pnlPct, locale: locale) ??
-                        MoneyFormat.price(entry.pnl!, locale: locale),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: tokens.signed(entry.pnl?.sign),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${MoneyFormat.quantity(p.qty, locale: locale)} × '
+                      '${MoneyFormat.price(p.avgPrice, locale: locale)}'
+                      '${p.note == null || p.note!.isEmpty ? '' : ' · ${p.note}'}',
+                      style: TradeLensText.mono(
+                        size: 12,
+                        weight: FontWeight.w400,
+                        color: tokens.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              )
-            : Tooltip(
-                message: l10n.priceUnavailable,
-                child: Icon(Icons.help_outline, color: tokens.warn),
+                  ],
+                ),
               ),
+              const SizedBox(width: 12),
+              if (entry.isAvailable)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      MoneyFormat.price(entry.value!, locale: locale),
+                      style: TradeLensText.mono(size: 15, color: tokens.text),
+                    ),
+                    const SizedBox(height: 4),
+                    ChangeChip(
+                      pct: entry.pnlPct,
+                      sign: entry.pnl?.sign,
+                      text: entry.pnlPct == null
+                          ? MoneyFormat.price(entry.pnl!, locale: locale)
+                          : null,
+                    ),
+                  ],
+                )
+              else
+                Tooltip(
+                  message: l10n.priceUnavailable,
+                  child: Icon(Icons.help_outline, color: tokens.warn),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
