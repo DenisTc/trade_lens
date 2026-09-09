@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "children": [
+    {"type": "header", "text": {"en": "Market today", "ru": "Рынок сегодня"}},
+    {"type": "ticker_card", "symbol": "BTCUSDT", "showSparkline": true},
+    {"type": "text", "text": {"en": "Bitcoin leads the day.", "ru": "Биткоин ведёт день."}, "style": "muted"},
+    {"type": "button", "label": {"en": "Open BTC"}, "action": {"route": "/p/BTCUSDT"}},
+    {"type": "list", "children": [
+      {"type": "ticker_card", "symbol": "ETHUSDT", "showSparkline": false},
+      {"type": "surprise", "payload": 42}
+    ]}
+  ]
+}

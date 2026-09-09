@@ -3,6 +3,7 @@
 /// No Flutter, no HTTP, no `double` (guarded by `tooling/arch_test`).
 library;
 
+export 'src/config/insights_config.dart';
 export 'src/market/asset.dart';
 export 'src/market/candle.dart';
 export 'src/market/candle_list.dart';

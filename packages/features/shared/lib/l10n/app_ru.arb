@@ -1,6 +1,9 @@
 {
   "@@locale": "ru",
   "appName": "TradeLens",
+  "tabInsights": "Инсайты",
+  "insightsConfigDefaults": "Встроенный экран · удалённый конфиг ещё не получен",
+  "insightsConfigRemote": "Экран из удалённого конфига",
   "connectionOffline": "Офлайн",
   "marketsSubtitle": "Топ-20 по обороту · USDT",
   "marketsColumns": "Цена · 24 ч",

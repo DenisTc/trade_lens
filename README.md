@@ -11,8 +11,8 @@ Binance, CoinGecko and Anthropic directly.
 > layer, markets list, pair screen with a CustomPainter chart, portfolio on
 > Drift with offline valuation, locales en/ru, settings, the «Оптика»
 > design (dark and light themes, glass tab bar, app icon), store
-> screenshots. Next: Remote Config + SDUI, the Claude API summary, deep
-> links, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+> screenshots, the server-driven Insights screen from Firebase Remote
+> Config. Next: the Claude API summary, deep links, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
 
 ## Screens
 
@@ -23,9 +23,9 @@ tabular figures for every number; one amber accent; rise and fall at the
 same lightness; a floating glass tab bar the lists scroll under. Dark and
 light themes follow the phone or a manual choice in Settings → Appearance.
 
-| Markets | Pair: chart, order book, tape | Portfolio | Settings |
-|---|---|---|---|
-| ![Markets list](docs/screenshots/markets_dark.png) | ![Pair screen](docs/screenshots/pair_dark.png) | ![Portfolio](docs/screenshots/portfolio_dark.png) | ![Settings](docs/screenshots/settings_dark.png) |
+| Markets | Pair: chart, order book, tape | Insights (server-driven) | Portfolio | Settings |
+|---|---|---|---|---|
+| ![Markets list](docs/screenshots/markets_dark.png) | ![Pair screen](docs/screenshots/pair_dark.png) | ![Insights](docs/screenshots/insights_dark.png) | ![Portfolio](docs/screenshots/portfolio_dark.png) | ![Settings](docs/screenshots/settings_dark.png) |
 
 | Markets, light | Pair, light | Portfolio, light | Appearance |
 |---|---|---|---|
@@ -46,13 +46,13 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Custom candlestick chart on `CustomPainter` | `packages/chart` (two painters, goldens, benchmark) |
 | Offline-first portfolio on Drift, Decimal money, tested v1→v2 migration | `packages/data_local`, `packages/domain/lib/src/portfolio` |
 | Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
-| Remote Config + server-driven UI | `packages/sdui` (day 6) |
-| Claude API: streaming, tool use, structured output | `packages/ai_insights` (day 6) |
-| SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage on day 7 |
-| Deferred deep links, attribution, push | `apps/mobile` (day 7) |
+| Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
+| Claude API: streaming, tool use, structured output | `packages/ai_insights` (next) |
+| SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
+| Deferred deep links, attribution, push | `apps/mobile` (next) |
 | Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
 | Unit / golden / Patrol tests, architecture tests | `tooling/arch_test`, `*/test` |
-| GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (day 8) |
+| GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (next) |
 
 ## Layout
 
@@ -84,6 +84,7 @@ fvm install            # reads .fvmrc (Flutter 3.47.2)
 fvm use 3.47.2         # creates .fvm/flutter_sdk, the link IDEs use
 dart pub global activate melos
 melos bootstrap
+sh tooling/scripts/firebase_stub.sh   # or `flutterfire configure` for real Remote Config
 melos run generate     # build_runner in every package that needs it
 melos run analyze
 melos run test           # unit + widget tests
@@ -140,3 +141,22 @@ MIT, see [LICENSE](LICENSE).
 Google Play (1080×2340) in Russian and English, composed by
 `docs/store/build.py` from simulator captures taken with
 `--dart-define=TL_INITIAL_ROUTE=… --dart-define=TL_LOCALE=… --dart-define=TL_DEMO_PORTFOLIO=true`.
+
+## Remote Config and the Insights screen
+
+The Insights tab is described by JSON in Firebase Remote Config (key
+`insights_screen`, schema 1, node types `header`, `text`, `ticker_card`,
+`button`, `list`). `packages/sdui` parses it into a tree and renders it;
+`packages/data_config` wraps Remote Config: defaults from the bundled
+asset, one `fetchAndActivate` with a timeout, then `onConfigUpdated` so an
+edit in the console shows up live. Buttons may only open routes from the
+app's allowlist. A config that fails to parse keeps the previous screen and
+is reported to Sentry; an unknown node type renders as a placeholder.
+
+The Firebase configuration files are git-ignored, and the iOS project
+references `GoogleService-Info.plist`, so a fresh clone needs one of the
+two before the first build: `flutterfire configure` for the real files, or
+`sh tooling/scripts/firebase_stub.sh` for stubs (CI does the latter; the
+app then runs on the bundled screen). The template in
+`apps/mobile/remoteconfig.template.json` is published with
+`firebase deploy --only remoteconfig`.

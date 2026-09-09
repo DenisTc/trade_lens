@@ -100,6 +100,12 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byKey(const Key('add_position')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tab_insights')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('sdui_screen')), findsOneWidget);
+    expect(find.text('Fake'), findsOneWidget);
   });
 
   testWidgets('position editor opens on the root navigator, above the '

@@ -1,6 +1,9 @@
 {
   "@@locale": "en",
   "appName": "TradeLens",
+  "tabInsights": "Insights",
+  "insightsConfigDefaults": "Built-in screen · remote config not reached yet",
+  "insightsConfigRemote": "Screen from remote config",
   "connectionOffline": "Offline",
   "marketsSubtitle": "Top 20 by turnover · USDT",
   "marketsColumns": "Price · 24h",

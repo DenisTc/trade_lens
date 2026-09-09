@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tradelens/screens/home_shell.dart';
+import 'package:tradelens/screens/insights_screen.dart';
 import 'package:tradelens/screens/markets_screen.dart';
 import 'package:tradelens/screens/pair_screen.dart';
 import 'package:tradelens/screens/settings_screen.dart';
@@ -16,6 +17,7 @@ part 'router.g.dart';
 abstract final class AppRoutes {
   static const markets = '/';
   static const pair = '/p/:symbol';
+  static const insights = '/insights';
   static const portfolio = '/portfolio';
   static const settings = '/settings';
   static const settingsAppearance = '/settings/appearance';
@@ -24,6 +26,15 @@ abstract final class AppRoutes {
   static const settingsAbout = '/settings/about';
 
   static String pairPath(String symbol) => '/p/$symbol';
+
+  /// Routes a server-driven button may open (`sdui` allowlist).
+  static const List<String> sduiAllowed = [
+    markets,
+    pair,
+    insights,
+    portfolio,
+    settings,
+  ];
 }
 
 /// Start route for demos and screenshots, e.g.
@@ -51,6 +62,14 @@ GoRouter router(Ref ref) => GoRouter(
                       PairScreen(symbol: state.pathParameters['symbol']!),
                 ),
               ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.insights,
+              builder: (context, state) => const InsightsScreen(),
             ),
           ],
         ),
