@@ -16,3 +16,6 @@ export 'src/market/market_error.dart';
 export 'src/market/order_book.dart';
 export 'src/market/quote.dart';
 export 'src/market/trade.dart';
+export 'src/portfolio/portfolio_valuation.dart';
+export 'src/portfolio/position.dart';
+export 'src/storage/repositories.dart';
