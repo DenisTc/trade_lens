@@ -30,8 +30,8 @@ melos:
       description: Static analysis, infos are fatal.
       run: melos exec -- dart analyze --fatal-infos .
     format:
-      description: Formatting check for the whole workspace.
-      run: dart format --set-exit-if-changed .
+      description: Formatting check for the workspace sources (build output, which holds vendored plugin sources after an iOS build, is not ours to format).
+      run: sh tooling/scripts/format.sh --set-exit-if-changed
     test:
       description: Run tests with coverage in every package that has a test dir (goldens excluded, see test:golden).
       run: melos exec --dir-exists test -- flutter test --coverage --exclude-tags golden
