@@ -32,5 +32,8 @@ melos:
       description: Formatting check for the whole workspace.
       run: dart format --set-exit-if-changed .
     test:
-      description: Run tests with coverage in every package that has a test dir.
-      run: melos exec --dir-exists test -- flutter test --coverage
+      description: Run tests with coverage in every package that has a test dir (goldens excluded, see test:golden).
+      run: melos exec --dir-exists test -- flutter test --coverage --exclude-tags golden
+    test:golden:
+      description: Golden tests only, in packages that ship a flutter_test_config.dart. Regenerate with `melos run test:golden -- --update-goldens` on macOS.
+      run: melos exec --file-exists test/flutter_test_config.dart -- flutter test --tags golden
