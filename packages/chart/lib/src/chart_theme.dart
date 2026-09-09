@@ -17,6 +17,7 @@ final class CandleChartTheme {
     this.priceAxisWidth = 56,
     this.timeAxisHeight = 18,
     this.volumeFraction = 0.2,
+    this.crosshairRingRadius = 6,
   });
 
   factory CandleChartTheme.of(BuildContext context) {
@@ -50,6 +51,9 @@ final class CandleChartTheme {
   /// Share of the plot height given to volume bars (0 hides them).
   final double volumeFraction;
 
+  /// Radius of the ring drawn where the crosshair lines meet.
+  final double crosshairRingRadius;
+
   @override
   bool operator ==(Object other) =>
       other is CandleChartTheme &&
@@ -64,7 +68,8 @@ final class CandleChartTheme {
       other.axisTextSize == axisTextSize &&
       other.priceAxisWidth == priceAxisWidth &&
       other.timeAxisHeight == timeAxisHeight &&
-      other.volumeFraction == volumeFraction;
+      other.volumeFraction == volumeFraction &&
+      other.crosshairRingRadius == crosshairRingRadius;
 
   @override
   int get hashCode => Object.hash(
@@ -80,5 +85,6 @@ final class CandleChartTheme {
     priceAxisWidth,
     timeAxisHeight,
     volumeFraction,
+    crosshairRingRadius,
   );
 }

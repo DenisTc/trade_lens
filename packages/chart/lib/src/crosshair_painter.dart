@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:chart/src/axes.dart';
 import 'package:chart/src/candle_painter.dart';
 import 'package:chart/src/chart_theme.dart';
@@ -39,7 +41,9 @@ final class CrosshairInfo {
 }
 
 /// Separate layer: moving the finger repaints only this painter, the
-/// candles behind it stay cached.
+/// candles behind it stay cached. Dashed guide lines, a lens ring at the
+/// intersection, a price tag on the price axis and a full date-time tag
+/// on the time axis.
 final class CrosshairPainter extends CustomPainter {
   CrosshairPainter({
     required this.series,
@@ -87,9 +91,18 @@ final class CrosshairPainter extends CustomPainter {
     final line = Paint()
       ..color = theme.crosshair
       ..strokeWidth = 1;
-    canvas
-      ..drawLine(Offset(x, 0), Offset(x, g.plotHeight), line)
-      ..drawLine(Offset(0, y), Offset(g.plotWidth, y), line);
+    _dashed(canvas, Offset(x, 0), Offset(x, g.plotHeight), line);
+    _dashed(canvas, Offset(0, y), Offset(g.plotWidth, y), line);
+
+    // Lens ring at the intersection: the brand mark as the focus point.
+    canvas.drawCircle(
+      Offset(x, y),
+      theme.crosshairRingRadius,
+      Paint()
+        ..color = theme.crosshair
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
 
     final digits = ChartFormat.priceDigits(g.range!.max - g.range!.min);
     _label(
@@ -100,10 +113,30 @@ final class CrosshairPainter extends CustomPainter {
     );
     _label(
       canvas,
-      ChartFormat.time(candle.openTime, interval.duration, local: localTime),
+      ChartFormat.timeFull(
+        candle.openTime,
+        interval.duration,
+        local: localTime,
+      ),
       Offset(x, g.plotHeight + 1),
       centered: true,
+      clampWidth: g.plotWidth,
     );
+  }
+
+  /// 3 px dash, 3 px gap.
+  void _dashed(Canvas canvas, Offset a, Offset b, Paint paint) {
+    const dash = 3.0;
+    const gap = 3.0;
+    final total = (b - a).distance;
+    if (total == 0) return;
+    final dir = (b - a) / total;
+    var t = 0.0;
+    while (t < total) {
+      final end = (t + dash).clamp(0.0, total);
+      canvas.drawLine(a + dir * t, a + dir * end, paint);
+      t += dash + gap;
+    }
   }
 
   void _label(
@@ -112,13 +145,20 @@ final class CrosshairPainter extends CustomPainter {
     Offset anchor, {
     bool alignLeft = false,
     bool centered = false,
+    double? clampWidth,
   }) {
     final painter = crosshairLabels.layout(text);
-    final left = centered
+    var left = centered
         ? anchor.dx - painter.width / 2
         : alignLeft
         ? anchor.dx
         : anchor.dx - painter.width;
+    // Keep the time tag inside the plot near the edges.
+    if (clampWidth != null) {
+      left = left
+          .clamp(3, math.max(3, clampWidth - painter.width - 3))
+          .toDouble();
+    }
     final top = centered ? anchor.dy : anchor.dy - painter.height / 2;
     final rect = Rect.fromLTWH(
       left - 3,

@@ -114,6 +114,18 @@ void main() {
     expect(find.text('No data'), findsOneWidget);
   });
 
+  test('ChartFormat.timeFull shows the day and, below daily, the time', () {
+    final t = DateTime.utc(2026, 9, 9, 14, 30);
+    expect(
+      ChartFormat.timeFull(t, const Duration(hours: 1), local: false),
+      '09.09 14:30',
+    );
+    expect(
+      ChartFormat.timeFull(t, const Duration(days: 1), local: false),
+      '09.09',
+    );
+  });
+
   test('ChartFormat picks digits and nice steps from the range', () {
     expect(ChartFormat.priceDigits(5000), 0);
     expect(ChartFormat.priceDigits(50), 1);
