@@ -9,6 +9,7 @@ library;
 export 'src/providers/assets.dart';
 export 'src/providers/connection.dart';
 export 'src/providers/market_data_source.dart';
+export 'src/providers/pair.dart';
 export 'src/providers/quotes.dart';
 export 'src/providers/retry.dart';
 export 'src/widgets/async_value_view.dart';
