@@ -14,6 +14,7 @@ class LanguageScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final current = ref.watch(appLocaleSettingProvider).value;
     final options = <Locale?>[null, ...SharedLocalizations.supportedLocales];
+    final t = context.tokens;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.language)),
       body: RadioGroup<String>(
@@ -27,11 +28,15 @@ class LanguageScreen extends ConsumerWidget {
           );
         },
         child: ListView(
+          padding: const EdgeInsets.only(top: 8),
           children: [
+            Divider(color: t.line),
             for (final locale in options)
               RadioListTile<String>(
                 key: Key('language_${locale?.languageCode ?? 'system'}'),
                 value: locale?.languageCode ?? 'system',
+                controlAffinity: ListTileControlAffinity.trailing,
+                shape: Border(bottom: BorderSide(color: t.line)),
                 title: Text(
                   locale == null ? l10n.languageSystem : languageName(locale),
                 ),

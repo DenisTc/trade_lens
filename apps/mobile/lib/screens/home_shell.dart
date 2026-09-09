@@ -2,8 +2,9 @@ import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Bottom navigation over the three top-level branches. go_router's
-/// StatefulShellRoute keeps each tab's stack alive.
+/// Floating glass tab bar over the three top-level branches. go_router's
+/// StatefulShellRoute keeps each tab's stack alive; `extendBody` lets
+/// lists scroll under the bar while their bottom padding ends above it.
 class HomeShell extends StatelessWidget {
   const HomeShell({required this.navigationShell, super.key});
 
@@ -13,24 +14,28 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
+      extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: GlassTabBar(
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(
+        onSelected: (index) => navigationShell.goBranch(
           index,
           initialLocation: index == navigationShell.currentIndex,
         ),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.show_chart),
+        tabs: [
+          GlassTab(
+            key: const Key('tab_markets'),
+            icon: Icons.candlestick_chart_outlined,
             label: l10n.tabMarkets,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+          GlassTab(
+            key: const Key('tab_portfolio'),
+            icon: Icons.pie_chart_outline,
             label: l10n.tabPortfolio,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
+          GlassTab(
+            key: const Key('tab_settings'),
+            icon: Icons.tune,
             label: l10n.tabSettings,
           ),
         ],

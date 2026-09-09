@@ -63,4 +63,5 @@ abstract final class SettingsKeys {
   static const installAttribution = 'attribution.install';
   static const aiConsent = 'ai.consent';
   static const uiLocale = 'ui.locale';
+  static const uiTheme = 'ui.theme';
 }

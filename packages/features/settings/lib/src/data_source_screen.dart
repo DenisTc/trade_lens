@@ -18,6 +18,7 @@ class DataSourceScreen extends ConsumerWidget {
     final choice =
         ref.watch(sourceChoiceSettingProvider).value ?? SourceChoice.auto;
     final source = ref.watch(marketDataSourceProvider).value;
+    final t = context.tokens;
     final labels = {
       SourceChoice.auto: l10n.settingsSourceAuto,
       SourceChoice.binance: 'Binance',
@@ -27,7 +28,9 @@ class DataSourceScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsSource)),
       body: ListView(
+        padding: const EdgeInsets.only(top: 8),
         children: [
+          Divider(color: t.line),
           RadioGroup<SourceChoice>(
             groupValue: choice,
             onChanged: (v) {
@@ -42,6 +45,8 @@ class DataSourceScreen extends ConsumerWidget {
                   RadioListTile<SourceChoice>(
                     key: Key('source_${c.storageValue}'),
                     value: c,
+                    controlAffinity: ListTileControlAffinity.trailing,
+                    shape: Border(bottom: BorderSide(color: t.line)),
                     title: Text(labels[c]!),
                     subtitle: c == SourceChoice.auto
                         ? Text(l10n.settingsSourceHint)
@@ -50,15 +55,11 @@ class DataSourceScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.travel_explore_outlined),
-            title: Text(
-              l10n.settingsCurrentSource(source?.attribution ?? '…'),
-              key: const Key('current_source'),
-            ),
+          SettingsRow(
+            icon: Icons.travel_explore_outlined,
+            title: l10n.settingsCurrentSource(source?.attribution ?? '…'),
             trailing: onCheckSource == null || choice != SourceChoice.auto
-                ? null
+                ? const SizedBox.shrink()
                 : TextButton(
                     key: const Key('check_source'),
                     onPressed: onCheckSource,
