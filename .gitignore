@@ -8,10 +8,9 @@ pubspec_overrides.yaml
 .flutter-plugins-dependencies
 *.iml
 .idea/
-.vscode/
 .DS_Store
 
-# fvm
+# fvm (the SDK link is machine-specific; .fvmrc pins the version)
 .fvm/
 
 # generated code (produced in CI by `melos run generate`)

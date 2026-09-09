@@ -54,6 +54,7 @@ Dependency direction is enforced by tests, see
 
 ```bash
 fvm install            # reads .fvmrc (Flutter 3.47.2)
+fvm use 3.47.2         # creates .fvm/flutter_sdk, the link IDEs use
 dart pub global activate melos
 melos bootstrap
 melos run generate     # build_runner in every package that needs it
@@ -65,6 +66,11 @@ cd apps/mobile && fvm flutter run --dart-define-from-file=../../env.json
 
 Generated files (`*.g.dart`, `*.freezed.dart`, `*.drift.dart`) are not
 committed; run `melos run generate` after cloning.
+
+VS Code picks the SDK from `.vscode/settings.json` (`.fvm/flutter_sdk`);
+the launch config runs `apps/mobile` with the example env file. If the IDE
+reports "current Dart SDK version is 3.12.x", it is still on a global
+Flutter: run `fvm use 3.47.2` and restart the analysis server.
 
 To see which market data source your network gets (Binance, its
 market-data host, Binance.US or the CoinGecko fallback):
