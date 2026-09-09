@@ -6,11 +6,17 @@
 /// import `data_market`, `ws_client` or any other implementation package.
 library;
 
+export 'l10n/generated/shared_localizations.dart';
+export 'src/format.dart';
+export 'src/l10n_ext.dart';
 export 'src/providers/assets.dart';
 export 'src/providers/connection.dart';
 export 'src/providers/market_data_source.dart';
 export 'src/providers/pair.dart';
+export 'src/providers/portfolio.dart';
 export 'src/providers/quotes.dart';
 export 'src/providers/retry.dart';
+export 'src/providers/storage.dart';
+export 'src/theme/tokens.dart';
 export 'src/widgets/async_value_view.dart';
 export 'src/widgets/data_source_badge.dart';

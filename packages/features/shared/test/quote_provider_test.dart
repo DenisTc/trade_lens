@@ -12,9 +12,7 @@ void main() {
 
   setUp(() {
     source = FakeMarketDataSource();
-    container = ProviderContainer(
-      overrides: [marketDataSourceProvider.overrideWith((ref) async => source)],
-    );
+    container = ProviderContainer(overrides: fakeOverrides(source: source));
     addTearDown(container.dispose);
     btc = source.instrumentFor(defaultAssets.first, 'USDT');
   });

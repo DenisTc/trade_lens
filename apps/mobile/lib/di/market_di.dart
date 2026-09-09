@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:core/core.dart';
 import 'package:data_market/data_market.dart';
 import 'package:domain/domain.dart';
+import 'package:features_settings/features_settings.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:ws_client/ws_client.dart';
 
@@ -28,10 +31,50 @@ typedef LiveMarket = ({
 Logger appLogger(Ref ref) =>
     kDebugMode ? const PrintLogger() : const NoopLogger();
 
+/// Region resolution survives restarts through the settings store
+/// (spec: "результат кэшируется на 24 ч").
+final class _SettingsResolutionCache implements ResolutionCache {
+  _SettingsResolutionCache(this._store);
+
+  final SettingsStore _store;
+
+  @override
+  Future<Resolution?> read() async {
+    final raw = await _store.read(SettingsKeys.regionResolution);
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, Object?>;
+      return Resolution(
+        candidateId: json['candidateId']! as String,
+        sourceId: json['sourceId']! as String,
+        reason: ResolutionReason.values.byName(json['reason']! as String),
+        at: DateTime.parse(json['at']! as String),
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> write(Resolution resolution) => _store.write(
+    SettingsKeys.regionResolution,
+    jsonEncode({
+      'candidateId': resolution.candidateId,
+      'sourceId': resolution.sourceId,
+      'reason': resolution.reason.name,
+      'at': resolution.at.toUtc().toIso8601String(),
+    }),
+  );
+
+  @override
+  Future<void> clear() => _store.delete(SettingsKeys.regionResolution);
+}
+
 @Riverpod(keepAlive: true)
 RegionResolver regionResolver(Ref ref) {
   final logger = ref.watch(appLoggerProvider);
   return RegionResolver(
+    cache: _SettingsResolutionCache(ref.watch(settingsStoreProvider)),
     probe: HttpSourceProbe(
       wsHandshake: ioWsHandshake,
       pins: tradeLensPins,
@@ -43,10 +86,54 @@ RegionResolver regionResolver(Ref ref) {
   );
 }
 
+/// Set by "Check source now": the next liveMarket build re-probes.
+bool _forceNextResolve = false;
+
 @Riverpod(keepAlive: true)
 Future<LiveMarket> liveMarket(Ref ref) async {
   final logger = ref.watch(appLoggerProvider);
-  final resolution = await ref.watch(regionResolverProvider).resolve();
+  final choice = await ref.watch(sourceChoiceSettingProvider.future);
+  final Resolution resolution;
+  if (choice == SourceChoice.auto) {
+    final force = _forceNextResolve;
+    _forceNextResolve = false;
+    resolution = await ref.watch(regionResolverProvider).resolve(force: force);
+  } else {
+    // Manual choice (Settings, App Review): no probing, no cache.
+    resolution = Resolution(
+      candidateId: switch (choice) {
+        SourceChoice.binance => 'binance_global',
+        SourceChoice.binanceUs => 'binance_us',
+        SourceChoice.coingecko || SourceChoice.auto => 'coingecko',
+      },
+      sourceId: choice.storageValue,
+      reason: ResolutionReason.direct,
+      at: DateTime.now().toUtc(),
+    );
+  }
+  // The cache belongs to one source; entries of others are dropped now
+  // (spec: "Кэш очищается при смене источника").
+  final now = DateTime.now().toUtc();
+  unawaited(
+    ref
+        .read(candleCacheProvider)
+        .evict(
+          maxAge: const Duration(hours: 24),
+          now: now,
+          keepSourceId: resolution.sourceId,
+        )
+        .catchError((Object _) {}),
+  );
+  unawaited(
+    ref
+        .read(lastQuoteStoreProvider)
+        .evict(
+          maxAge: const Duration(hours: 24),
+          now: now,
+          keepSourceId: resolution.sourceId,
+        )
+        .catchError((Object _) {}),
+  );
   final hosts = switch (resolution.candidateId) {
     'binance_global' => BinanceHosts.global,
     'binance_vision' => BinanceHosts.vision,
@@ -80,9 +167,29 @@ Future<LiveMarket> liveMarket(Ref ref) async {
   return (source: source, ws: ws, resolution: resolution);
 }
 
+/// "Check source now": re-probe the chain and rebuild the live stack.
+@Riverpod(keepAlive: true)
+void Function() recheckSource(Ref ref) => () {
+  _forceNextResolve = true;
+  ref.invalidate(liveMarketProvider);
+};
+
+/// Version and install attribution for the About screen.
+Future<AboutInfo> _resolvedAboutInfo(Ref ref) async {
+  final info = await PackageInfo.fromPlatform();
+  final install = await ref
+      .watch(settingsStoreProvider)
+      .read(SettingsKeys.installAttribution);
+  return AboutInfo.defaults().copyWith(
+    version: '${info.version} (${info.buildNumber})',
+    installSource: install,
+  );
+}
+
 /// Overrides that bind the interface providers of `features_shared` to the
 /// live stack. Tests pass their own overrides instead.
 List<Override> marketOverrides() => [
+  aboutInfoProvider.overrideWith(_resolvedAboutInfo),
   retryMarketSourceProvider.overrideWith(
     (ref) =>
         () => ref.invalidate(liveMarketProvider),

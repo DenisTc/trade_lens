@@ -5,7 +5,6 @@ import 'package:features_markets/features_markets.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart' hide Interval;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Candle _c(int i, {Duration step = const Duration(minutes: 1)}) => Candle(
@@ -18,16 +17,10 @@ Candle _c(int i, {Duration step = const Duration(minutes: 1)}) => Candle(
 );
 
 void main() {
-  Widget app(FakeMarketDataSource source, Instrument instrument) =>
-      ProviderScope(
-        retry: noRetry,
-        overrides: [
-          marketDataSourceProvider.overrideWith((ref) async => source),
-        ],
-        child: MaterialApp(
-          home: PairScreen(instrument: instrument, localTime: false),
-        ),
-      );
+  Widget app(FakeMarketDataSource source, Instrument instrument) => testApp(
+    overrides: fakeOverrides(source: source),
+    home: PairScreen(instrument: instrument, localTime: false),
+  );
 
   testWidgets('full source: chart, interval selector, book and tape', (
     tester,

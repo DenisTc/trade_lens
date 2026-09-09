@@ -9,9 +9,14 @@ environment:
 dependencies:
   core:
   domain:
+  drift: ^2.34.4
+  drift_flutter: ^0.3.1
   flutter:
     sdk: flutter
+  path: ^1.9.0
 dev_dependencies:
+  build_runner: ^2.16.1
+  drift_dev: ^2.34.6
   flutter_test:
     sdk: flutter
   very_good_analysis: ^11.0.0

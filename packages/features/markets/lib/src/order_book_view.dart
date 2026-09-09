@@ -1,6 +1,5 @@
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
-import 'package:features_markets/src/format.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +14,7 @@ class OrderBookView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final book = ref.watch(orderBookProvider(instrument));
+    final tokens = context.tokens;
     return AsyncValueView<OrderBookSnapshot>(
       value: book,
       loading: () => const _BookSkeleton(),
@@ -31,7 +31,7 @@ class OrderBookView extends ConsumerWidget {
                 key: const Key('order_book_bids'),
                 levels: snapshot.bids,
                 maxQty: maxQty,
-                color: Colors.green.shade600,
+                color: tokens.up,
                 alignEnd: true,
               ),
             ),
@@ -41,7 +41,7 @@ class OrderBookView extends ConsumerWidget {
                 key: const Key('order_book_asks'),
                 levels: snapshot.asks,
                 maxQty: maxQty,
-                color: Theme.of(context).colorScheme.error,
+                color: tokens.down,
                 alignEnd: false,
               ),
             ),
@@ -68,6 +68,7 @@ class _Side extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.localeTag;
     final style = Theme.of(context).textTheme.bodySmall
         ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
     return Column(
@@ -96,11 +97,14 @@ class _Side extends StatelessWidget {
                         : TextDirection.ltr,
                     children: [
                       Text(
-                        formatPrice(level.price),
+                        MoneyFormat.price(level.price, locale: locale),
                         style: style?.copyWith(color: color),
                       ),
                       const Spacer(),
-                      Text(level.qty.toStringAsFixed(4), style: style),
+                      Text(
+                        MoneyFormat.quantity(level.qty, locale: locale),
+                        style: style,
+                      ),
                     ],
                   ),
                 ),

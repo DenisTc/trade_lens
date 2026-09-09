@@ -17,6 +17,7 @@ pubspec_overrides.yaml
 **/*.g.dart
 **/*.freezed.dart
 **/*.drift.dart
+packages/features/shared/lib/l10n/generated/
 
 # secrets
 env.json
