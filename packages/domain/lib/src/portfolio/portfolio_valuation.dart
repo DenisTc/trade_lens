@@ -31,21 +31,33 @@ abstract class PositionValuation with _$PositionValuation {
   bool get isAvailable => price != null;
 }
 
+/// Totals of the valued positions in one quote currency. USDT and USD are
+/// never added together; each currency gets its own line.
+@freezed
+abstract class CurrencyTotals with _$CurrencyTotals {
+  const factory CurrencyTotals({
+    required String quote,
+    required Decimal total,
+    required Decimal cost,
+    required Decimal pnl,
+    required Decimal? pnlPct,
+  }) = _CurrencyTotals;
+}
+
 @freezed
 abstract class PortfolioValuation with _$PortfolioValuation {
   const factory PortfolioValuation({
     required List<PositionValuation> entries,
 
-    /// Sum of the available values; null when nothing could be valued.
-    required Decimal? total,
-    required Decimal? totalPnl,
-    required Decimal? totalPnlPct,
+    /// One entry per quote currency that has at least one valued position,
+    /// sorted by currency. Empty when nothing could be valued.
+    required List<CurrencyTotals> totals,
 
-    /// Time of the prices used.
+    /// Time of the prices used (oldest one when not live).
     required DateTime asOf,
 
-    /// False when prices came from the local `last_quotes` store rather
-    /// than a live stream: the UI shows "as of HH:mm".
+    /// False when any price came from the local `last_quotes` store or the
+    /// live connection is gone: the UI shows "as of HH:mm".
     required bool isLive,
   }) = _PortfolioValuation;
 
@@ -63,9 +75,8 @@ abstract class PortfolioValuation with _$PortfolioValuation {
     required bool isLive,
   }) {
     final entries = <PositionValuation>[];
-    var total = Decimal.zero;
-    var cost = Decimal.zero;
-    var any = false;
+    final total = <String, Decimal>{};
+    final cost = <String, Decimal>{};
     for (final position in positions) {
       final quote = quotes[priceKeyOf(position)];
       if (quote == null) {
@@ -91,16 +102,23 @@ abstract class PortfolioValuation with _$PortfolioValuation {
           pnlPct: _pct(pnl, position.cost),
         ),
       );
-      total += value;
-      cost += position.cost;
-      any = true;
+      total[position.quote] = (total[position.quote] ?? Decimal.zero) + value;
+      cost[position.quote] =
+          (cost[position.quote] ?? Decimal.zero) + position.cost;
     }
-    final totalPnl = any ? total - cost : null;
+    final totals = [
+      for (final quote in total.keys.toList()..sort())
+        CurrencyTotals(
+          quote: quote,
+          total: total[quote]!,
+          cost: cost[quote]!,
+          pnl: total[quote]! - cost[quote]!,
+          pnlPct: _pct(total[quote]! - cost[quote]!, cost[quote]!),
+        ),
+    ];
     return PortfolioValuation(
       entries: entries,
-      total: any ? total : null,
-      totalPnl: totalPnl,
-      totalPnlPct: totalPnl == null ? null : _pct(totalPnl, cost),
+      totals: totals,
       asOf: asOf,
       isLive: isLive,
     );

@@ -18,8 +18,17 @@ part 'pair.g.dart';
 /// history loaded keeps the data, the chart must not go blank.
 @riverpod
 class Candles extends _$Candles {
+  /// Bumped per build so a REST reply of a superseded build is ignored.
+  int _generation = 0;
+
+  /// Live candles received while the REST history is still in flight;
+  /// applied on top of it so a late reply cannot roll them back.
+  List<Candle> _liveWhileLoading = const [];
+
   @override
   Future<List<Candle>> build(Instrument instrument, Interval interval) async {
+    final generation = ++_generation;
+    _liveWhileLoading = const [];
     final source = await ref.watch(marketDataSourceProvider.future);
     final cache = ref.watch(candleCacheProvider);
     final cached = await cache.read(instrument, interval);
@@ -40,8 +49,10 @@ class Candles extends _$Candles {
       unawaited(
         fetch.then(
           (fresh) {
-            if (!ref.mounted) return;
-            state = AsyncData(fresh);
+            if (!ref.mounted || generation != _generation) return;
+            final merged = _liveWhileLoading.fold(fresh, (l, c) => l.upsert(c));
+            _liveWhileLoading = const [];
+            state = AsyncData(merged);
             unawaited(
               cache
                   .write(instrument, interval, fresh)
@@ -70,6 +81,7 @@ class Candles extends _$Candles {
   }
 
   void _upsert(Candle candle) {
+    _liveWhileLoading = [..._liveWhileLoading, candle];
     final current = state.value;
     if (current == null) return;
     state = AsyncData(current.upsert(candle));

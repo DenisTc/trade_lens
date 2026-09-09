@@ -45,6 +45,17 @@ final class FakeLastQuoteStore implements LastQuoteStore {
     for (final q in saved.values)
       if (q.instrument.sourceId == sourceId) q,
   ];
+
+  @override
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  }) async => saved.removeWhere(
+    (_, q) =>
+        now.difference(q.at) > maxAge ||
+        (keepSourceId != null && q.instrument.sourceId != keepSourceId),
+  );
 }
 
 final class FakeCandleCache implements CandleCache {
@@ -65,7 +76,11 @@ final class FakeCandleCache implements CandleCache {
   ) async => entries[_key(instrument, interval)] = candles;
 
   @override
-  Future<void> evict({required Duration maxAge, required DateTime now}) async {}
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  }) async {}
 }
 
 final class FakeSettingsStore implements SettingsStore {

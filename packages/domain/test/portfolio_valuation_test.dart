@@ -47,9 +47,11 @@ void main() {
     expect(v.entries[0].pnl, Decimal.parse('9000.05'));
     expect(v.entries[0].pnlPct!.toStringAsFixed(2), '30.00');
     expect(v.entries[1].pnl, Decimal.parse('-1000'));
-    expect(v.total, Decimal.parse('44000.05'));
-    expect(v.totalPnl, Decimal.parse('8000.05'));
-    expect(v.totalPnlPct!.toStringAsFixed(2), '22.22');
+    final usdt = v.totals.single;
+    expect(usdt.quote, 'USDT');
+    expect(usdt.total, Decimal.parse('44000.05'));
+    expect(usdt.pnl, Decimal.parse('8000.05'));
+    expect(usdt.pnlPct!.toStringAsFixed(2), '22.22');
     expect(v.unavailableCount, 0);
   });
 
@@ -62,7 +64,11 @@ void main() {
     );
     expect(v.entries[1].isAvailable, isFalse);
     expect(v.unavailableCount, 1);
-    expect(v.total, Decimal.parse('70000'), reason: 'sum of what is known');
+    expect(
+      v.totals.single.total,
+      Decimal.parse('70000'),
+      reason: 'sum of what is known',
+    );
   });
 
   test('a quote in another currency does not value the position', () {
@@ -79,8 +85,7 @@ void main() {
       isLive: false,
     );
     expect(v.entries.single.isAvailable, isFalse);
-    expect(v.total, isNull);
-    expect(v.totalPnl, isNull);
+    expect(v.totals, isEmpty);
   });
 
   test('empty portfolio has no totals', () {
@@ -91,7 +96,7 @@ void main() {
       isLive: true,
     );
     expect(v.entries, isEmpty);
-    expect(v.total, isNull);
+    expect(v.totals, isEmpty);
   });
 
   test('zero cost gives no percentage', () {
@@ -102,7 +107,29 @@ void main() {
       isLive: true,
     );
     expect(v.entries.single.pnlPct, isNull);
-    expect(v.totalPnlPct, isNull);
+    expect(v.totals.single.pnlPct, isNull);
+  });
+
+  test('totals are kept per quote currency, never mixed', () {
+    final v = PortfolioValuation.compute(
+      positions: [
+        pos(btc, '1', '100'),
+        pos(eth, '1', '100', quote: 'USD'),
+      ],
+      quotes: {
+        priceKeyOfQuote(quote(btc, '150')): quote(btc, '150'),
+        priceKeyOfQuote(quote(eth, '50', quote: 'USD')): quote(
+          eth,
+          '50',
+          quote: 'USD',
+        ),
+      },
+      asOf: at,
+      isLive: true,
+    );
+    expect(v.totals.map((t) => t.quote), ['USD', 'USDT']);
+    expect(v.totals[0].pnl, Decimal.parse('-50'));
+    expect(v.totals[1].pnl, Decimal.parse('50'));
   });
 
   test('Position.cost is qty × avgPrice', () {

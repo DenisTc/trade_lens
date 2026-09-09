@@ -18,6 +18,14 @@ abstract interface class PortfolioRepository {
 abstract interface class LastQuoteStore {
   Future<void> save(Quote quote);
   Future<List<Quote>> readAll(String sourceId);
+
+  /// Drops quotes older than [maxAge] and, when [keepSourceId] is given,
+  /// every quote of other sources (spec: cache is cleared on source change).
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  });
 }
 
 /// Up to 500 candles per `sourceId + instrument + interval`; the network
@@ -30,8 +38,13 @@ abstract interface class CandleCache {
     List<Candle> candles,
   );
 
-  /// Drops entries older than [maxAge] (spec: 24 h).
-  Future<void> evict({required Duration maxAge, required DateTime now});
+  /// Drops entries older than [maxAge] (spec: 24 h) and, when
+  /// [keepSourceId] is given, every entry of other sources.
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  });
 }
 
 /// Key–value settings: chosen source, cached region resolution, attribution

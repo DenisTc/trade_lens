@@ -11,9 +11,11 @@ Future<void> showPositionEditor(BuildContext context, {Position? existing}) =>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => Padding(
+      // The sheet's own context sees the keyboard inset; the page's
+      // context under the shell may not.
+      builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
         ),
         child: PositionEditor(existing: existing),
       ),
@@ -56,7 +58,7 @@ class _PositionEditorState extends ConsumerState<PositionEditor> {
         ref.watch(marketDataSourceProvider).value?.defaultQuote ??
         widget.existing?.quote ??
         'USDT';
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Form(
         key: _form,
@@ -136,20 +138,27 @@ class _PositionEditorState extends ConsumerState<PositionEditor> {
     final note = _note.text.trim().isEmpty ? null : _note.text.trim();
     final commands = ref.read(portfolioCommandsProvider.notifier);
     final existing = widget.existing;
-    if (existing == null) {
-      await commands.add(
-        asset: _asset,
-        quote: quote,
-        qty: qty,
-        avgPrice: price,
-        note: note,
-      );
-    } else {
-      await commands.update(
-        existing.copyWith(qty: qty, avgPrice: price, note: note),
-      );
+    try {
+      if (existing == null) {
+        await commands.add(
+          asset: _asset,
+          quote: quote,
+          qty: qty,
+          avgPrice: price,
+          note: note,
+        );
+      } else {
+        await commands.update(
+          existing.copyWith(qty: qty, avgPrice: price, note: note),
+        );
+      }
+      if (mounted) Navigator.of(context).pop();
+    } on Object catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (mounted) Navigator.of(context).pop();
   }
 }
 

@@ -64,10 +64,14 @@ void main() {
 
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '35,000.00',
+      '35,000.00 USDT',
     );
     expect(find.byKey(const Key('valuation_status')), findsOneWidget);
-    expect(find.text('Live'), findsOneWidget);
+    expect(
+      find.text('Live'),
+      findsNothing,
+      reason: 'socket status is idle in tests',
+    );
     expect(find.textContaining('+16.67%'), findsNWidgets(2));
   });
 
@@ -98,7 +102,7 @@ void main() {
     expect(find.textContaining('As of'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '65,000.00',
+      '65,000.00 USDT',
     );
   });
 
@@ -119,7 +123,7 @@ void main() {
     expect(find.text('Портфель'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '2\u00a0000,00',
+      '2\u00a0000,00 USDT',
     );
   });
 

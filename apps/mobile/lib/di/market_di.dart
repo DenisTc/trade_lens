@@ -111,6 +111,29 @@ Future<LiveMarket> liveMarket(Ref ref) async {
       at: DateTime.now().toUtc(),
     );
   }
+  // The cache belongs to one source; entries of others are dropped now
+  // (spec: "Кэш очищается при смене источника").
+  final now = DateTime.now().toUtc();
+  unawaited(
+    ref
+        .read(candleCacheProvider)
+        .evict(
+          maxAge: const Duration(hours: 24),
+          now: now,
+          keepSourceId: resolution.sourceId,
+        )
+        .catchError((Object _) {}),
+  );
+  unawaited(
+    ref
+        .read(lastQuoteStoreProvider)
+        .evict(
+          maxAge: const Duration(hours: 24),
+          now: now,
+          keepSourceId: resolution.sourceId,
+        )
+        .catchError((Object _) {}),
+  );
   final hosts = switch (resolution.candidateId) {
     'binance_global' => BinanceHosts.global,
     'binance_vision' => BinanceHosts.vision,
@@ -152,19 +175,12 @@ void Function() recheckSource(Ref ref) => () {
 };
 
 /// Version and install attribution for the About screen.
-@Riverpod(keepAlive: true)
-Future<AboutInfo> resolvedAboutInfo(Ref ref) async {
-  final base = ref.watch(aboutInfoProvider);
+Future<AboutInfo> _resolvedAboutInfo(Ref ref) async {
   final info = await PackageInfo.fromPlatform();
   final install = await ref
       .watch(settingsStoreProvider)
       .read(SettingsKeys.installAttribution);
-  return AboutInfo(
-    sources: base.sources,
-    termsCheckedOn: base.termsCheckedOn,
-    privacyPolicyUrl: base.privacyPolicyUrl,
-    termsOfUseUrl: base.termsOfUseUrl,
-    repositoryUrl: base.repositoryUrl,
+  return AboutInfo.defaults().copyWith(
     version: '${info.version} (${info.buildNumber})',
     installSource: install,
   );
@@ -173,6 +189,7 @@ Future<AboutInfo> resolvedAboutInfo(Ref ref) async {
 /// Overrides that bind the interface providers of `features_shared` to the
 /// live stack. Tests pass their own overrides instead.
 List<Override> marketOverrides() => [
+  aboutInfoProvider.overrideWith(_resolvedAboutInfo),
   retryMarketSourceProvider.overrideWith(
     (ref) =>
         () => ref.invalidate(liveMarketProvider),

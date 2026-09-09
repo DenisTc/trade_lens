@@ -17,8 +17,8 @@ final class SourceTerms {
   final String attribution;
 }
 
-/// Static facts for the About screen. The check date is the day the terms
-/// were last read by a human (spec: "дата последней проверки").
+/// Facts for the About screen. The check date is the day the terms were
+/// last read by a human (spec: "дата последней проверки").
 @immutable
 final class AboutInfo {
   const AboutInfo({
@@ -31,6 +31,36 @@ final class AboutInfo {
     this.installSource,
   });
 
+  /// Static facts; the app adds the runtime version and attribution.
+  factory AboutInfo.defaults() => AboutInfo(
+    sources: [
+      SourceTerms(
+        name: 'Binance',
+        termsUrl: Uri.parse('https://www.binance.com/en/terms'),
+        attribution: 'Data: Binance',
+      ),
+      SourceTerms(
+        name: 'Binance.US',
+        termsUrl: Uri.parse('https://www.binance.us/terms-of-use'),
+        attribution: 'Data: Binance.US',
+      ),
+      SourceTerms(
+        name: 'CoinGecko',
+        termsUrl: Uri.parse('https://www.coingecko.com/en/api_terms'),
+        attribution: 'Powered by CoinGecko',
+      ),
+    ],
+    termsCheckedOn: DateTime.utc(2026, 9, 8),
+    privacyPolicyUrl: Uri.parse(
+      'https://denistc.github.io/trade_lens/privacy-policy',
+    ),
+    termsOfUseUrl: Uri.parse(
+      'https://denistc.github.io/trade_lens/terms-of-use',
+    ),
+    repositoryUrl: Uri.parse('https://github.com/DenisTc/trade_lens'),
+    version: '',
+  );
+
   final List<SourceTerms> sources;
   final DateTime termsCheckedOn;
   final Uri privacyPolicyUrl;
@@ -40,33 +70,18 @@ final class AboutInfo {
 
   /// Attribution parameters of the install (deferred deep link, day 7).
   final String? installSource;
+
+  AboutInfo copyWith({String? version, String? installSource}) => AboutInfo(
+    sources: sources,
+    termsCheckedOn: termsCheckedOn,
+    privacyPolicyUrl: privacyPolicyUrl,
+    termsOfUseUrl: termsOfUseUrl,
+    repositoryUrl: repositoryUrl,
+    version: version ?? this.version,
+    installSource: installSource ?? this.installSource,
+  );
 }
 
-/// Overridden by the app with real version and attribution values.
+/// Overridden by the app with the real version and install attribution.
 @Riverpod(keepAlive: true)
-AboutInfo aboutInfo(Ref ref) => AboutInfo(
-  sources: [
-    SourceTerms(
-      name: 'Binance',
-      termsUrl: Uri.parse('https://www.binance.com/en/terms'),
-      attribution: 'Data: Binance',
-    ),
-    SourceTerms(
-      name: 'Binance.US',
-      termsUrl: Uri.parse('https://www.binance.us/terms-of-use'),
-      attribution: 'Data: Binance.US',
-    ),
-    SourceTerms(
-      name: 'CoinGecko',
-      termsUrl: Uri.parse('https://www.coingecko.com/en/api_terms'),
-      attribution: 'Powered by CoinGecko',
-    ),
-  ],
-  termsCheckedOn: DateTime.utc(2026, 9, 8),
-  privacyPolicyUrl: Uri.parse(
-    'https://denistc.github.io/trade_lens/privacy-policy',
-  ),
-  termsOfUseUrl: Uri.parse('https://denistc.github.io/trade_lens/terms-of-use'),
-  repositoryUrl: Uri.parse('https://github.com/DenisTc/trade_lens'),
-  version: '0.1.0',
-);
+Future<AboutInfo> aboutInfo(Ref ref) async => AboutInfo.defaults();

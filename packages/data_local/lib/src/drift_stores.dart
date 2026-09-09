@@ -106,6 +106,20 @@ final class DriftLastQuoteStore implements LastQuoteStore {
         ),
     ];
   }
+
+  @override
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  }) =>
+      (_db.delete(_db.lastQuotes)..where((q) {
+            final old = q.at.isSmallerThanValue(now.subtract(maxAge));
+            return keepSourceId == null
+                ? old
+                : old | q.sourceId.equals(keepSourceId).not();
+          }))
+          .go();
 }
 
 final class DriftCandleCache implements CandleCache {
@@ -183,9 +197,17 @@ final class DriftCandleCache implements CandleCache {
   }
 
   @override
-  Future<void> evict({required Duration maxAge, required DateTime now}) =>
-      (_db.delete(_db.candleCacheRows)
-            ..where((c) => c.storedAt.isSmallerThanValue(now.subtract(maxAge))))
+  Future<void> evict({
+    required Duration maxAge,
+    required DateTime now,
+    String? keepSourceId,
+  }) =>
+      (_db.delete(_db.candleCacheRows)..where((c) {
+            final old = c.storedAt.isSmallerThanValue(now.subtract(maxAge));
+            return keepSourceId == null
+                ? old
+                : old | c.sourceId.equals(keepSourceId).not();
+          }))
           .go();
 }
 

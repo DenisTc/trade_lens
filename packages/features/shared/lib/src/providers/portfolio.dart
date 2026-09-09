@@ -1,6 +1,7 @@
 import 'package:clock/clock.dart';
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
+import 'package:features_shared/src/providers/connection.dart';
 import 'package:features_shared/src/providers/market_data_source.dart';
 import 'package:features_shared/src/providers/quotes.dart';
 import 'package:features_shared/src/providers/storage.dart';
@@ -25,42 +26,57 @@ Future<Map<PriceKey, Instrument>> portfolioInstruments(Ref ref) async {
   };
 }
 
-/// Live valuation. Every live quote arriving for a portfolio instrument
-/// recomputes the valuation; instruments without a live quote yet fall
-/// back to the last stored quote, and the whole valuation is marked
-/// non-live (shown as "as of HH:mm") while any price came from storage.
+/// Last quotes stored for the active source, read once per source (not on
+/// every tick: the valuation only consults them for positions without a
+/// live price).
+@riverpod
+Future<Map<PriceKey, Quote>> storedQuotes(Ref ref) async {
+  final source = await ref.watch(marketDataSourceProvider.future);
+  final stored = await ref.watch(lastQuoteStoreProvider).readAll(source.id);
+  return {for (final q in stored) priceKeyOfQuote(q): q};
+}
+
+/// Live valuation.
+///
+/// Every live quote for a portfolio instrument recomputes it. A position
+/// without a live quote yet falls back to the last stored one. The result
+/// is "live" only while the socket is connected (or the source polls over
+/// REST) and every price came from a live stream; otherwise it is shown
+/// "as of" the oldest price used, so a dropped connection never keeps
+/// pretending to be live.
 @riverpod
 Future<PortfolioValuation> portfolioValuation(Ref ref) async {
   final positions = await ref.watch(positionsProvider.future);
   final source = await ref.watch(marketDataSourceProvider.future);
   final instruments = await ref.watch(portfolioInstrumentsProvider.future);
+  final stored = await ref.watch(storedQuotesProvider.future);
+  final status =
+      ref.watch(connectionStatusProvider).value ?? ConnectionStatus.idle;
+  final streamsLive =
+      !source.capabilities.klineStream || status == ConnectionStatus.connected;
 
-  final live = <PriceKey, Quote>{};
-  for (final entry in instruments.entries) {
-    final quote = ref.watch(quoteProvider(entry.value)).value;
-    if (quote != null) live[entry.key] = quote;
+  final prices = <PriceKey, Quote>{};
+  var allLive = true;
+  DateTime? oldest;
+  for (final position in positions) {
+    final key = priceKeyOf(position);
+    final instrument = instruments[key];
+    final live = instrument == null
+        ? null
+        : ref.watch(quoteProvider(instrument)).value;
+    final quote = live ?? stored[key];
+    if (quote == null) continue;
+    prices[key] = quote;
+    if (live == null) allLive = false;
+    if (oldest == null || quote.at.isBefore(oldest)) oldest = quote.at;
   }
-
-  // Stored prices make the valuation "as of" the oldest one used.
-  DateTime? oldestStored;
-  final prices = <PriceKey, Quote>{...live};
-  final missing = positions.map(priceKeyOf).where((k) => !live.containsKey(k));
-  if (missing.isNotEmpty) {
-    final stored = await ref.watch(lastQuoteStoreProvider).readAll(source.id);
-    for (final quote in stored) {
-      final key = priceKeyOfQuote(quote);
-      if (!missing.contains(key)) continue;
-      prices[key] = quote;
-      if (oldestStored == null || quote.at.isBefore(oldestStored)) {
-        oldestStored = quote.at;
-      }
-    }
-  }
+  final isLive = allLive && streamsLive && prices.isNotEmpty;
+  final now = clock.now().toUtc();
   return PortfolioValuation.compute(
     positions: positions,
     quotes: prices,
-    asOf: oldestStored ?? clock.now().toUtc(),
-    isLive: oldestStored == null,
+    asOf: isLive ? now : (oldest ?? now),
+    isLive: isLive,
   );
 }
 

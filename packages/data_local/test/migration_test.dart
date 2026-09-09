@@ -1,4 +1,5 @@
 import 'package:data_local/data_local.dart';
+import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,9 +40,14 @@ void main() {
     await db.close();
   });
 
-  test('a fresh database matches the latest schema snapshot', () async {
-    final db = AppDatabase(await verifier.startAt(2));
-    await verifier.migrateAndValidate(db, 2);
-    await db.close();
-  });
+  test(
+    'a fresh database created by onCreate matches the v2 snapshot',
+    () async {
+      // An empty in-memory database: opening it runs the app's own onCreate,
+      // and the verifier compares the result with the v2 snapshot.
+      final db = AppDatabase(NativeDatabase.memory());
+      await verifier.migrateAndValidate(db, 2);
+      await db.close();
+    },
+  );
 }

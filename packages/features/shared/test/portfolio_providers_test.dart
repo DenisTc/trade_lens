@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:clock/clock.dart';
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
@@ -26,7 +28,12 @@ void main() {
     await repo.upsert(position(btc, '0.5', '60000'));
     final c = ProviderContainer(
       retry: noRetry,
-      overrides: fakeOverrides(source: source, portfolio: repo),
+      overrides: [
+        ...fakeOverrides(source: source, portfolio: repo),
+        connectionStatusProvider.overrideWith(
+          (ref) => Stream.value(ConnectionStatus.connected),
+        ),
+      ],
     );
     addTearDown(c.dispose);
 
@@ -39,8 +46,8 @@ void main() {
 
     final v = c.read(portfolioValuationProvider).value!;
     expect(v.isLive, isTrue);
-    expect(v.total, Decimal.parse('35000'));
-    expect(v.totalPnl, Decimal.parse('5000'));
+    expect(v.totals.single.total, Decimal.parse('35000'));
+    expect(v.totals.single.pnl, Decimal.parse('5000'));
   });
 
   test(
@@ -77,7 +84,7 @@ void main() {
       final v = c.read(portfolioValuationProvider).value!;
       expect(v.isLive, isFalse);
       expect(v.asOf, at);
-      expect(v.total, Decimal.parse('65000'));
+      expect(v.totals.single.total, Decimal.parse('65000'));
     },
   );
 
@@ -136,6 +143,42 @@ void main() {
       });
     },
   );
+
+  test('a dropped socket turns the valuation into "as of"', () async {
+    final source = FakeMarketDataSource();
+    final repo = FakePortfolioRepository();
+    await repo.upsert(position(btc, '1', '1'));
+    final status = StreamController<ConnectionStatus>.broadcast();
+    final c = ProviderContainer(
+      retry: noRetry,
+      overrides: [
+        ...fakeOverrides(source: source, portfolio: repo),
+        connectionStatusProvider.overrideWith((ref) => status.stream),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(status.close);
+    c.listen(portfolioValuationProvider, (_, _) {});
+    await settle();
+    await settle();
+    status.add(ConnectionStatus.connected);
+    await settle();
+    source.emit(source.instrumentFor(btc, 'USDT'), '2');
+    await settle();
+    await settle();
+    expect(c.read(portfolioValuationProvider).value!.isLive, isTrue);
+
+    status.add(ConnectionStatus.reconnecting);
+    await settle();
+    await settle();
+    final v = c.read(portfolioValuationProvider).value!;
+    expect(v.isLive, isFalse);
+    expect(
+      v.totals.single.total,
+      Decimal.fromInt(2),
+      reason: 'last price kept',
+    );
+  });
 
   test('commands add and remove positions', () async {
     final repo = FakePortfolioRepository();

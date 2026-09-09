@@ -25,7 +25,7 @@ class SettingsScreen extends ConsumerWidget {
     final choice =
         ref.watch(sourceChoiceSettingProvider).value ?? SourceChoice.auto;
     final source = ref.watch(marketDataSourceProvider).value;
-    final about = ref.watch(aboutInfoProvider);
+    final about = ref.watch(aboutInfoProvider).value ?? AboutInfo.defaults();
     final labels = {
       SourceChoice.auto: l10n.settingsSourceAuto,
       SourceChoice.binance: 'Binance',
@@ -119,7 +119,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.code),
-            title: Text(l10n.version(about.version)),
+            title: Text(
+              l10n.version(about.version.isEmpty ? '…' : about.version),
+            ),
             subtitle: Text(
               about.repositoryUrl.toString(),
               style: theme.textTheme.bodySmall,
