@@ -56,6 +56,18 @@ abstract interface class SettingsStore {
   Stream<String?> watch(String key);
 }
 
+/// Secrets (the user's Claude API key) in the platform keychain, never in
+/// the settings database, never logged.
+abstract interface class SecretStore {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+abstract final class SecretKeys {
+  static const anthropicApiKey = 'anthropic.api_key';
+}
+
 /// Setting keys shared by app and features.
 abstract final class SettingsKeys {
   static const manualSource = 'source.manual';

@@ -5,3 +5,4 @@ library;
 export 'src/database.dart';
 export 'src/drift_stores.dart';
 export 'src/open_database.dart';
+export 'src/secure_secret_store.dart';

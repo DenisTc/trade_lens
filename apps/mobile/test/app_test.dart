@@ -130,4 +130,38 @@ void main() {
     final barTop = tester.getTopLeft(find.byType(GlassTabBar)).dy;
     expect(sheetBottom, greaterThan(barTop));
   });
+
+  testWidgets('the move-summary button follows the remote flag', (
+    tester,
+  ) async {
+    Future<void> open({required bool aiEnabled}) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          retry: noRetry,
+          overrides: fakeOverrides(
+            source: source,
+            config: FakeInsightsConfigSource(
+              InsightsConfig(
+                insightsScreenJson: '{"schema":1,"children":[]}',
+                aiInsightsEnabled: aiEnabled,
+                source: InsightsConfigOrigin.remote,
+              ),
+            ),
+          ),
+          child: const TradeLensApp(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.text('BTC/USDT'));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await open(aiEnabled: true);
+    expect(find.byKey(const Key('move_summary')), findsOneWidget);
+
+    await open(aiEnabled: false);
+    expect(find.byKey(const Key('move_summary')), findsNothing);
+  });
 }

@@ -9,6 +9,7 @@ environment:
   flutter: ">=3.47.0"
 
 dependencies:
+  ai_insights:
   core:
   data_config:
   data_local:

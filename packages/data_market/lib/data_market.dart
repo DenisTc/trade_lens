@@ -2,6 +2,7 @@
 /// fallback, region resolver, HTTP infrastructure with SPKI pinning.
 library;
 
+export 'src/ai/dio_claude_transport.dart';
 export 'src/binance/binance_hosts.dart';
 export 'src/binance/binance_market_data_source.dart';
 export 'src/binance/binance_parsers.dart';
@@ -18,6 +19,7 @@ export 'src/http/dio_factory.dart';
 export 'src/http/pins.dart';
 export 'src/http/retry_interceptor.dart';
 export 'src/http/spki_pinning.dart';
+export 'src/http/spki_preflight.dart';
 export 'src/region/default_chain.dart';
 export 'src/region/http_source_probe.dart';
 export 'src/region/region_resolver.dart';

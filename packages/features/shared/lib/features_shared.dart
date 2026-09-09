@@ -9,6 +9,7 @@ library;
 export 'l10n/generated/shared_localizations.dart';
 export 'src/format.dart';
 export 'src/l10n_ext.dart';
+export 'src/providers/ai.dart';
 export 'src/providers/assets.dart';
 export 'src/providers/config.dart';
 export 'src/providers/connection.dart';

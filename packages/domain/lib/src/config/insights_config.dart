@@ -9,10 +9,15 @@ final class InsightsConfig {
     required this.insightsScreenJson,
     required this.aiInsightsEnabled,
     required this.source,
+    this.aiModelJson = '',
   });
 
   final String insightsScreenJson;
   final bool aiInsightsEnabled;
+
+  /// Model id, prices and limits for the AI summary (`ai_model` key);
+  /// empty means the bundled defaults.
+  final String aiModelJson;
 
   /// Where the values came from, for the badge and for tests.
   final InsightsConfigOrigin source;
@@ -22,11 +27,12 @@ final class InsightsConfig {
       other is InsightsConfig &&
       other.insightsScreenJson == insightsScreenJson &&
       other.aiInsightsEnabled == aiInsightsEnabled &&
-      other.source == source;
+      other.source == source &&
+      other.aiModelJson == aiModelJson;
 
   @override
   int get hashCode =>
-      Object.hash(insightsScreenJson, aiInsightsEnabled, source);
+      Object.hash(insightsScreenJson, aiInsightsEnabled, source, aiModelJson);
 }
 
 enum InsightsConfigOrigin {
@@ -41,6 +47,7 @@ enum InsightsConfigOrigin {
 abstract final class InsightsConfigKeys {
   static const insightsScreen = 'insights_screen';
   static const aiInsightsEnabled = 'ai_insights_enabled';
+  static const aiModel = 'ai_model';
 }
 
 /// Source of [InsightsConfig]. Implementations: Firebase Remote Config

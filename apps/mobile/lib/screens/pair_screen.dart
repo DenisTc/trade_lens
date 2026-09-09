@@ -1,7 +1,12 @@
+import 'dart:async';
+
+import 'package:features_insights/features_insights.dart';
 import 'package:features_markets/features_markets.dart' as markets;
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:tradelens/router.dart';
 
 /// Route wrapper for `/p/:symbol`: resolves the symbol against the active
 /// source's instruments (deep links and SDUI buttons carry only a symbol).
@@ -36,7 +41,20 @@ class PairScreen extends ConsumerWidget {
             body: Center(child: Text(context.l10n.pairNotAvailable(symbol))),
           );
         }
-        return markets.PairScreen(instrument: match.first);
+        return markets.PairScreen(
+          instrument: match.first,
+          // The button appears only while the remote flag is on; the
+          // sheet explains a missing key or consent by itself.
+          onMoveSummary: ref.watch(aiInsightsEnabledProvider)
+              ? () => unawaited(
+                  showMoveSummarySheet(
+                    context,
+                    instrument: match.first,
+                    onOpenAiSettings: () => context.go(AppRoutes.settingsAi),
+                  ),
+                )
+              : null,
+        );
       },
     );
   }
