@@ -1,6 +1,6 @@
 import 'package:features_portfolio/features_portfolio.dart';
 import 'package:features_settings/features_settings.dart'
-    show AboutScreen, AppearanceScreen, LanguageScreen;
+    show AboutScreen, AiKeyScreen, AppearanceScreen, LanguageScreen;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -20,6 +20,7 @@ abstract final class AppRoutes {
   static const insights = '/insights';
   static const portfolio = '/portfolio';
   static const settings = '/settings';
+  static const settingsAi = '/settings/ai';
   static const settingsAppearance = '/settings/appearance';
   static const settingsSource = '/settings/source';
   static const settingsLanguage = '/settings/language';
@@ -87,6 +88,10 @@ GoRouter router(Ref ref) => GoRouter(
               path: AppRoutes.settings,
               builder: (context, state) => const SettingsScreen(),
               routes: [
+                GoRoute(
+                  path: 'ai',
+                  builder: (context, state) => const AiKeyScreen(),
+                ),
                 GoRoute(
                   path: 'appearance',
                   builder: (context, state) => const AppearanceScreen(),

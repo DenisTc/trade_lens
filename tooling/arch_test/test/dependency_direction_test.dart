@@ -8,7 +8,8 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/core': {},
   'packages/domain': {'core'},
   'packages/ws_client': {'core'},
-  'packages/data_market': {'core', 'domain', 'ws_client'},
+  // ai_insights declares the ClaudeTransport interface data_market implements.
+  'packages/data_market': {'ai_insights', 'core', 'domain', 'ws_client'},
   'packages/data_local': {'core', 'domain'},
   'packages/data_config': {'core', 'domain'},
   // dev-only: golden test config lives in features_shared/testing.dart
@@ -18,7 +19,9 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/features/shared': {'core', 'domain'},
   'packages/features/markets': _featureDeps,
   'packages/features/portfolio': _featureDeps,
-  'packages/features/insights': _featureDeps,
+  // The only feature that speaks to the Claude client (through its
+  // interfaces; the transport itself is overridden by the app).
+  'packages/features/insights': {..._featureDeps, 'ai_insights'},
   'packages/features/settings': _featureDeps,
   'tooling/arch_test': {},
   // apps/mobile is intentionally absent: it may depend on anything.

@@ -12,9 +12,11 @@ class SettingsScreen extends ConsumerWidget {
     required this.onOpenAbout,
     super.key,
     this.onOpenAppearance,
+    this.onOpenAi,
   });
 
   final VoidCallback? onOpenAppearance;
+  final VoidCallback? onOpenAi;
   final VoidCallback onOpenDataSource;
   final VoidCallback onOpenLanguage;
   final VoidCallback onOpenAbout;
@@ -57,6 +59,19 @@ class SettingsScreen extends ConsumerWidget {
                       : source?.attribution ?? '…',
                   onTap: onOpenDataSource,
                 ),
+                if (onOpenAi != null)
+                  SettingsRow(
+                    key: const Key('settings_ai'),
+                    icon: Icons.auto_awesome_outlined,
+                    title: l10n.aiSettingsRow,
+                    subtitle: switch (ref.watch(aiReadinessProvider)) {
+                      AiReadiness.ready => l10n.aiSettingsRowReady,
+                      AiReadiness.noConsent => l10n.aiSettingsRowNoConsent,
+                      AiReadiness.disabled ||
+                      AiReadiness.noKey => l10n.aiSettingsRowNoKey,
+                    },
+                    onTap: onOpenAi,
+                  ),
                 SettingsRow(
                   key: const Key('settings_language'),
                   icon: Icons.translate,

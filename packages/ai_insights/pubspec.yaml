@@ -1,5 +1,5 @@
 name: ai_insights
-description: TradeLens · ai_insights package.
+description: "TradeLens · Claude API client for the move summary: SSE streaming, tool loop, structured output, cost."
 version: 0.1.0
 publish_to: none
 resolution: workspace
@@ -8,6 +8,7 @@ environment:
 dependencies:
   core:
   domain:
+  meta: ^1.16.0
 dev_dependencies:
   test: ^1.25.0
   very_good_analysis: ^11.0.0

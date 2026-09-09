@@ -1,0 +1,18 @@
+{
+  "_comment": "Recorded example answer, shown as 'Example' when there is no API key. Not a live model response.",
+  "prose": {
+    "en": "Over the last 24 hours BTC/USDT travelled from 66,890 to 68,412 and settled around 67,430. The move came in two pushes: one during the European session, the second after midnight UTC, with almost six flat hours between them in the 67,100–67,400 range. Volume on both pushes ran about twice the daily average and fell to the day's lows while the price stood still. The top of the book is currently thicker on the bid side: the ten best bids hold roughly one and a half times the quantity of the ten best asks. The spread sits near 0.6 points, about 0.001 percent of the price. Data: Binance, newest candle closed at 12:41 UTC.",
+    "ru": "За последние сутки BTC/USDT прошёл путь от 66 890 до 68 412 и закрепился около 67 430. Рост шёл двумя импульсами: первый на европейской сессии, второй после полуночи UTC, между ними цена почти шесть часов стояла в диапазоне 67 100–67 400. Объём на импульсах был примерно вдвое выше среднего по суткам, на боковике падал до минимумов дня. Верх стакана сейчас плотнее со стороны покупок: суммарный объём десяти лучших бидов превышает объём асков примерно в полтора раза. Спред держится около 0,6 пункта, то есть порядка 0,001 процента от цены. Данные: Binance, последняя свеча закрыта в 12:41 UTC."
+  },
+  "structure": {
+    "trend": "up",
+    "volatility": "medium",
+    "keyLevels": [
+      "66890",
+      "67400",
+      "68412"
+    ],
+    "dataSource": "Binance",
+    "dataAsOf": "2026-09-09T12:41:00Z"
+  }
+}

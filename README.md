@@ -12,7 +12,8 @@ Binance, CoinGecko and Anthropic directly.
 > Drift with offline valuation, locales en/ru, settings, the «Оптика»
 > design (dark and light themes, glass tab bar, app icon), store
 > screenshots, the server-driven Insights screen from Firebase Remote
-> Config. Next: the Claude API summary, deep links, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+> Config, the AI move summary on the user's own Claude API key. Next: deep
+> links and attribution, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
 
 ## Screens
 
@@ -31,6 +32,13 @@ light themes follow the phone or a manual choice in Settings → Appearance.
 |---|---|---|---|
 | ![Markets, light](docs/screenshots/markets_light.png) | ![Pair screen, light](docs/screenshots/pair_light.png) | ![Portfolio, light](docs/screenshots/portfolio_light.png) | ![Appearance](docs/screenshots/appearance_light.png) |
 
+| AI move summary, dark | AI move summary, light |
+|---|---|
+| ![AI summary](docs/screenshots/ai_summary_dark.png) | ![AI summary, light](docs/screenshots/ai_summary_light.png) |
+
+The two summary shots are the bundled recorded example, rendered by the
+real widget in a golden test; the live feature runs on the user's own key.
+
 Screenshots are from the iOS simulator on live Binance data (the simulator
 runs in Russian; the app ships en and ru). Prices and the 24h change stream
 over one WebSocket; the chart follows the newest candle, pans and
@@ -47,7 +55,7 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Offline-first portfolio on Drift, Decimal money, tested v1→v2 migration | `packages/data_local`, `packages/domain/lib/src/portfolio` |
 | Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
-| Claude API: streaming, tool use, structured output | `packages/ai_insights` (next) |
+| Claude API: SSE streaming, tool use, structured output, cost accounting | `packages/ai_insights`, `packages/features/insights/lib/src/ai` |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
 | Deferred deep links, attribution, push | `apps/mobile` (next) |
 | Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
@@ -160,3 +168,34 @@ two before the first build: `flutterfire configure` for the real files, or
 app then runs on the bundled screen). The template in
 `apps/mobile/remoteconfig.template.json` is published with
 `firebase deploy --only remoteconfig`.
+
+## AI move summary
+
+The pair screen can ask Claude to describe what the price and volume did.
+It runs on **the user's own Anthropic API key**, kept in the device
+keychain: there is no backend and no shared key, so nobody else pays for
+it. The flow, in `packages/ai_insights` (pure Dart) and
+`packages/features/insights/lib/src/ai` (UI):
+
+- a consent screen before the first call names exactly what is sent (the
+  candles and the top of the order book of the pair on screen);
+- the model calls `get_klines` and `get_orderbook`, validated against the
+  active source's instruments and intervals and answered from data the app
+  already holds; the loop is capped at three iterations and a token budget;
+- the prose streams into the sheet over SSE, then a second call with a JSON
+  schema fills the block under it (trend, volatility, key levels, source
+  and time);
+- `usage` from both calls is priced with the rates in Remote Config
+  (`ai_model`) and shown under the answer;
+- 401 says "check the key", 429 says "wait", a dropped connection says
+  "retry", and leaving the screen cancels the request;
+- the remote flag `ai_insights_enabled` hides the button without a release;
+- with no key the sheet plays a recorded example (bundled asset) so the
+  feature can be shown and screenshotted without spending anything.
+
+The key never reaches a log, a crash report or the Dio base options, and
+the pin of `api.anthropic.com` is checked on a handshake of its own before
+the first request, because Dio validates a certificate only once the
+response is in. The residual gap (an interceptor that behaves differently
+on the two connections) is written down in
+[ADR-0002](docs/decisions/0002-region-fallback-and-pinning.md).

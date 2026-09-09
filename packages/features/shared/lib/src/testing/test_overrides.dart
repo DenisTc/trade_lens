@@ -1,4 +1,5 @@
 import 'package:domain/domain.dart';
+import 'package:features_shared/src/providers/ai.dart';
 import 'package:features_shared/src/providers/config.dart';
 import 'package:features_shared/src/providers/error_reporter.dart';
 import 'package:features_shared/src/providers/market_data_source.dart';
@@ -19,6 +20,7 @@ List<Override> fakeOverrides({
   CandleCache? candleCache,
   SettingsStore? settings,
   InsightsConfigSource? config,
+  SecretStore? secrets,
   ErrorReporter? errorReporter,
 
   /// Keep-alive grace of quote providers; zero by default so disposal is
@@ -37,6 +39,7 @@ List<Override> fakeOverrides({
   insightsConfigSourceProvider.overrideWithValue(
     config ?? FakeInsightsConfigSource(),
   ),
+  secretStoreProvider.overrideWithValue(secrets ?? FakeSecretStore()),
   if (errorReporter != null)
     errorReporterProvider.overrideWithValue(errorReporter),
   // No keep-alive grace in tests: disposal is observable right away.

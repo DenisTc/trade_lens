@@ -2,9 +2,9 @@
   "parameters": {
     "ai_insights_enabled": {
       "defaultValue": {
-        "value": "false"
+        "value": "true"
       },
-      "description": "Turns the Claude API summary on without a release.",
+      "description": "Shows the AI move summary button. Off hides the feature without a release; the user still needs their own API key.",
       "valueType": "BOOLEAN"
     },
     "insights_screen": {
@@ -12,6 +12,13 @@
         "value": "{\n  \"schema\": 1,\n  \"children\": [\n    {\"type\": \"header\", \"text\": {\"en\": \"Market today\", \"ru\": \"Рынок сегодня\"}},\n    {\"type\": \"text\", \"text\": {\"en\": \"The three largest pairs by turnover, live from the exchange.\", \"ru\": \"Три крупнейшие пары по обороту, вживую с биржи.\"}, \"style\": \"muted\"},\n    {\"type\": \"ticker_card\", \"symbol\": \"BTCUSDT\", \"showSparkline\": true},\n    {\"type\": \"ticker_card\", \"symbol\": \"ETHUSDT\", \"showSparkline\": true},\n    {\"type\": \"ticker_card\", \"symbol\": \"SOLUSDT\", \"showSparkline\": true},\n    {\"type\": \"button\", \"label\": {\"en\": \"Open BTC/USDT\", \"ru\": \"Открыть BTC/USDT\"}, \"action\": {\"route\": \"/p/BTCUSDT\"}},\n    {\"type\": \"header\", \"text\": {\"en\": \"About this screen\", \"ru\": \"Об этом экране\"}},\n    {\"type\": \"text\", \"text\": {\"en\": \"This screen is described by JSON in Firebase Remote Config: cards, order and texts change without a release. The built-in version is shown until the config arrives.\", \"ru\": \"Этот экран описан JSON-ом в Firebase Remote Config: карточки, порядок и тексты меняются без релиза. Пока конфиг не пришёл, показывается встроенная версия.\"}, \"style\": \"muted\"}\n  ]\n}"
       },
       "description": "SDUI JSON of the Insights screen (schema 1).",
+      "valueType": "JSON"
+    },
+    "ai_model": {
+      "defaultValue": {
+        "value": "{\"model\": \"claude-haiku-4-5\", \"inputUsdPerMTok\": 1, \"outputUsdPerMTok\": 5, \"maxOutputTokens\": 1024, \"maxToolIterations\": 3, \"maxSessionTokens\": 40000}"
+      },
+      "description": "Model id, USD per million tokens and limits for the AI move summary.",
       "valueType": "JSON"
     }
   },
