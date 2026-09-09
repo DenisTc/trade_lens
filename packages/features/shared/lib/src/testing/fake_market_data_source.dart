@@ -12,12 +12,24 @@ final class FakeMarketDataSource implements MarketDataSource {
     this.assets = defaultAssets,
     this.quote = 'USDT',
     this.capabilities = Capabilities.full,
+    this.history = const [],
+    this.klinesError,
   });
 
   final List<Asset> assets;
   final String quote;
+
+  /// Returned by [klines] for every instrument and interval.
+  final List<Candle> history;
+
+  /// When set, [klines] fails with this error.
+  final MarketError? klinesError;
   final Map<String, int> listeners = {};
   final Map<String, StreamController<Quote>> _controllers = {};
+  final Map<String, StreamController<Candle>> _klines = {};
+  final Map<String, StreamController<OrderBookSnapshot>> _books = {};
+  final Map<String, StreamController<Trade>> _trades = {};
+  final List<(Instrument, Interval)> klineRequests = [];
 
   @override
   String get id => 'fake';
@@ -68,7 +80,20 @@ final class FakeMarketDataSource implements MarketDataSource {
     Instrument instrument,
     Interval interval, {
     int limit = 500,
-  }) async => const Ok([]);
+  }) async {
+    klineRequests.add((instrument, interval));
+    final error = klinesError;
+    return error == null ? Ok(history) : Err(error);
+  }
+
+  void emitCandle(Instrument instrument, Candle candle) =>
+      _klines[instrument.symbol]?.add(candle);
+
+  void emitBook(Instrument instrument, OrderBookSnapshot book) =>
+      _books[instrument.symbol]?.add(book);
+
+  void emitTrade(Instrument instrument, Trade trade) =>
+      _trades[instrument.symbol]?.add(trade);
 
   @override
   Stream<Quote> quoteStream(List<Instrument> instruments) {
@@ -94,12 +119,20 @@ final class FakeMarketDataSource implements MarketDataSource {
 
   @override
   Stream<Candle> klineStream(Instrument instrument, Interval interval) =>
-      const Stream.empty();
+      _klines
+          .putIfAbsent(instrument.symbol, StreamController<Candle>.broadcast)
+          .stream;
 
   @override
-  Stream<OrderBookSnapshot> orderBookStream(Instrument instrument) =>
-      const Stream.empty();
+  Stream<OrderBookSnapshot> orderBookStream(Instrument instrument) => _books
+      .putIfAbsent(
+        instrument.symbol,
+        StreamController<OrderBookSnapshot>.broadcast,
+      )
+      .stream;
 
   @override
-  Stream<Trade> tradeStream(Instrument instrument) => const Stream.empty();
+  Stream<Trade> tradeStream(Instrument instrument) => _trades
+      .putIfAbsent(instrument.symbol, StreamController<Trade>.broadcast)
+      .stream;
 }

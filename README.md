@@ -7,9 +7,20 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: **day 3 of 8** · workspace, CI, data sources, region fallback,
-> pinning, the WebSocket layer and the live markets list are in place. The
-> pair screen (chart, order book, tape) is next. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
+> Status: **day 4 of 8** · data sources, region fallback, pinning, the
+> WebSocket layer, the markets list and the pair screen with a
+> CustomPainter chart are in place. Next: portfolio on Drift, locales,
+> dark-theme tokens. See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
+
+## Screens
+
+| Markets | Pair: chart, order book, tape | Dark theme |
+|---|---|---|
+| ![Markets list](docs/screenshots/markets_light.png) | ![Pair screen](docs/screenshots/pair_light.png) | ![Pair screen, dark](docs/screenshots/pair_dark.png) |
+
+Screenshots are from the iOS simulator on live Binance data. Prices and the
+24h change stream over one WebSocket; the chart follows the newest candle,
+pans and pinch-zooms, a long press shows the crosshair.
 
 ## What this repository demonstrates
 
@@ -17,7 +28,7 @@ Binance, CoinGecko and Anthropic directly.
 |---|---|
 | Riverpod 3 with codegen, DI without GetIt | `packages/features/shared`, `apps/mobile/lib/di` |
 | WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` |
-| Custom candlestick chart on `CustomPainter` | `packages/chart` (day 4) |
+| Custom candlestick chart on `CustomPainter` | `packages/chart` (two painters, goldens, benchmark) |
 | Offline-first portfolio on Drift, Decimal money | `packages/data_local`, `packages/domain` (day 5) |
 | Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
 | Remote Config + server-driven UI | `packages/sdui` (day 6) |
