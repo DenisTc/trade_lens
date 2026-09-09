@@ -9,6 +9,7 @@ environment:
 dependencies:
   core:
   domain:
+  features_shared:
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.4.3
