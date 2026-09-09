@@ -22,6 +22,16 @@ abstract final class ChartFormat {
     return _time(local_, interval);
   }
 
+  /// Full stamp for the crosshair: the day is always shown, the time
+  /// unless the interval is daily or longer.
+  static String timeFull(DateTime t, Duration interval, {bool local = true}) {
+    final l = local ? t.toLocal() : t.toUtc();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final day = '${two(l.day)}.${two(l.month)}';
+    if (interval >= const Duration(days: 1)) return day;
+    return '$day ${two(l.hour)}:${two(l.minute)}';
+  }
+
   static String _time(DateTime local, Duration interval) {
     String two(int n) => n.toString().padLeft(2, '0');
     if (interval >= const Duration(days: 1)) {
