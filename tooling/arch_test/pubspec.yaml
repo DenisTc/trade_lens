@@ -1,0 +1,13 @@
+name: arch_test
+description: TradeLens · arch_test package.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+dependencies:
+  path: ^1.9.0
+  yaml: ^3.1.2
+dev_dependencies:
+  test: ^1.25.0
+  very_good_analysis: ^11.0.0
