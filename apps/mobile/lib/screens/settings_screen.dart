@@ -11,6 +11,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => settings.SettingsScreen(
+    onOpenAppearance: () => context.go(AppRoutes.settingsAppearance),
     onOpenDataSource: () => context.go(AppRoutes.settingsSource),
     onOpenLanguage: () => context.go(AppRoutes.settingsLanguage),
     onOpenAbout: () => context.go(AppRoutes.settingsAbout),

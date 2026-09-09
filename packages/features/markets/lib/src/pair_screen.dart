@@ -3,6 +3,7 @@ import 'package:domain/domain.dart';
 import 'package:features_markets/src/chart_mapping.dart';
 import 'package:features_markets/src/connection_dot.dart';
 import 'package:features_markets/src/order_book_view.dart';
+import 'package:features_markets/src/pair_tile.dart';
 import 'package:features_markets/src/trade_tape.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart' hide Interval;
@@ -32,35 +33,42 @@ class PairScreen extends ConsumerWidget {
     final interval = ref.watch(selectedIntervalProvider);
     final candles = ref.watch(candlesProvider(instrument, interval));
     final series = ref.watch(chartSeriesProvider(instrument, interval));
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(instrument.displayName),
-        actions: const [ConnectionDot()],
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PairName(instrument: instrument, size: 17),
+            Text(instrument.base.name, style: theme.textTheme.labelSmall),
+          ],
+        ),
+        actions: const [ConnectionDot(), SizedBox(width: 12)],
       ),
       body: ListView(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(context).bottom + 16,
+        ),
         children: [
           _PriceHeader(instrument: instrument),
           if (capabilities.intervals.length > 1)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<Interval>(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: IntervalPills(
                 key: const Key('interval_selector'),
-                segments: [
-                  for (final iv in capabilities.intervals)
-                    ButtonSegment(value: iv, label: Text(iv.code)),
-                ],
-                selected: {interval},
-                showSelectedIcon: false,
-                onSelectionChanged: (set) =>
-                    ref.read(selectedIntervalProvider.notifier).value =
-                        set.first,
+                intervals: capabilities.intervals,
+                selected: interval,
+                onSelected: (iv) =>
+                    ref.read(selectedIntervalProvider.notifier).value = iv,
               ),
             ),
           SizedBox(
-            height: 280,
+            height: 290,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 12, 0, 0),
+              padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
               child: AsyncValueView<CandleSeries>(
                 value: series,
                 error: (error, _) => ErrorView(
@@ -77,40 +85,126 @@ class PairScreen extends ConsumerWidget {
                   ),
                   showVolume: capabilities.volume,
                   localTime: localTime,
+                  emptyLabel: l10n.noData,
+                  theme: tradeLensChartTheme(context),
                 ),
               ),
             ),
           ),
           if (!capabilities.volume)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Text(
-                context.l10n.pricesOnlyNote(
+                l10n.pricesOnlyNote(
                   chartIntervalFor(interval, candles.value ?? const []).label ??
                       interval.code,
                 ),
                 key: const Key('prices_only_note'),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: theme.textTheme.bodySmall,
               ),
             ),
           if (capabilities.orderBook) ...[
-            _SectionTitle(context.l10n.orderBook),
+            const SizedBox(height: 10),
+            SectionHeader(l10n.orderBook),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: OrderBookView(instrument: instrument),
             ),
           ],
           if (capabilities.trades) ...[
-            _SectionTitle(context.l10n.trades),
+            const SizedBox(height: 8),
+            SectionHeader(l10n.trades, trailing: l10n.tradesLast(30)),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TradeTape(instrument: instrument),
             ),
           ],
           const SizedBox(height: 16),
+          const DataSourceBadge(),
         ],
       ),
-      bottomNavigationBar: const SafeArea(child: DataSourceBadge()),
+    );
+  }
+}
+
+/// Chart colours from the tokens: rise and fall, accent crosshair with an
+/// accent price tag, hairline grid, mono axis labels.
+CandleChartTheme tradeLensChartTheme(BuildContext context) {
+  final t = context.tokens;
+  return CandleChartTheme(
+    up: t.up,
+    down: t.down,
+    grid: t.line,
+    axisText: t.muted,
+    crosshair: t.accent,
+    crosshairLabelBackground: t.accent,
+    crosshairLabelText: t.onAccent,
+    fontFamily: TradeLensFonts.mono,
+  );
+}
+
+/// Interval choice as pills; the selected one wears the accent ring.
+class IntervalPills extends StatelessWidget {
+  const IntervalPills({
+    required this.intervals,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
+
+  final Iterable<Interval> intervals;
+  final Interval selected;
+  final ValueChanged<Interval> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        for (final iv in intervals)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Semantics(
+              button: true,
+              selected: iv == selected,
+              child: InkWell(
+                onTap: () => onSelected(iv),
+                borderRadius: BorderRadius.circular(22),
+                child: SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      constraints: const BoxConstraints(minHeight: 32),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: iv == selected ? t.accentBg : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: iv == selected ? t.accent : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        iv.code,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: iv == selected ? t.accentInk : t.muted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -126,56 +220,41 @@ class _PriceHeader extends ConsumerWidget {
     final theme = Theme.of(context);
     final locale = context.localeTag;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: switch (quote) {
         AsyncData(:final value) => Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(
-              MoneyFormat.price(value.price, locale: locale),
-              key: const Key('pair_price'),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
+            Flexible(
+              child: Text(
+                MoneyFormat.price(value.price, locale: locale),
+                key: const Key('pair_price'),
+                style: theme.textTheme.displaySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 12),
-            if (MoneyFormat.changePct(value.change24hPct, locale: locale)
-                case final change?)
-              Text(
-                change,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: context.tokens.signed(value.change24hPct?.sign),
-                ),
-              ),
+            if (value.change24hPct != null) ...[
+              const SizedBox(width: 12),
+              ChangeChip(pct: value.change24hPct),
+            ],
           ],
         ),
         AsyncError(:final error) => Text(
           '$error',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.error,
+            color: context.tokens.down,
           ),
         ),
         _ => const SizedBox(
-          height: 40,
+          height: 44,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Skeleton(width: 160, height: 28),
+            child: Skeleton(width: 180, height: 30),
           ),
         ),
       },
     );
   }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
-  );
 }

@@ -1,0 +1,9 @@
+# Run from apps/mobile: `dart pub global activate flutter_launcher_icons && flutter_launcher_icons`
+flutter_launcher_icons:
+  image_path: assets/icon/icon.png
+  ios: true
+  remove_alpha_ios: true
+  android: true
+  adaptive_icon_background: "#0C1117"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  adaptive_icon_monochrome: assets/icon/icon_foreground.png

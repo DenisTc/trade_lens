@@ -70,4 +70,33 @@ void main() {
     await tester.pump();
     expect(find.text('50,000.00'), findsOneWidget);
   });
+
+  testWidgets('glass tabs switch branches; the theme setting picks the mode', (
+    tester,
+  ) async {
+    final settings = FakeSettingsStore()..values[SettingsKeys.uiTheme] = 'dark';
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: noRetry,
+        overrides: fakeOverrides(source: source, settings: settings),
+        child: const TradeLensApp(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.dark);
+    expect(find.byType(GlassTabBar), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tab_settings')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('settings_appearance')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tab_portfolio')));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('add_position')), findsOneWidget);
+  });
 }

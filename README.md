@@ -7,21 +7,29 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: **day 5 of 8** · data sources, region fallback, pinning, the
-> WebSocket layer, markets list, pair screen with a CustomPainter chart,
+> Status: **day 5 of 8 + design** · data sources, region fallback, pinning,
+> the WebSocket layer, markets list, pair screen with a CustomPainter chart,
 > portfolio on Drift with offline valuation, locales en/ru, settings and
-> About. Next: Remote Config + SDUI and the Claude API summary.
+> About, and the «Оптика» design (dark and light themes, glass tab bar,
+> app icon). Next: Remote Config + SDUI and the Claude API summary.
 > See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
 
 ## Screens
 
-| Markets | Pair: chart, order book, tape | Portfolio | Settings & About |
-|---|---|---|---|
-| ![Markets list](docs/screenshots/markets_light.png) | ![Pair screen](docs/screenshots/pair_light.png) | ![Portfolio](docs/screenshots/portfolio_light.png) | ![Settings](docs/screenshots/settings_light.png) |
+Design direction «Оптика» (`docs/design/brief.md`): one brand mark, the
+lens ring, that is also the app icon, the connection status, the selected
+interval and the chart crosshair; Onest for text and IBM Plex Mono with
+tabular figures for every number; one amber accent; rise and fall at the
+same lightness; a floating glass tab bar the lists scroll under. Dark and
+light themes follow the phone or a manual choice in Settings → Appearance.
 
-| Pair, dark theme | Portfolio, dark theme |
-|---|---|
-| ![Pair screen, dark](docs/screenshots/pair_dark.png) | ![Portfolio, dark](docs/screenshots/portfolio_dark.png) |
+| Markets | Pair: chart, order book, tape | Portfolio | Settings |
+|---|---|---|---|
+| ![Markets list](docs/screenshots/markets_dark.png) | ![Pair screen](docs/screenshots/pair_dark.png) | ![Portfolio](docs/screenshots/portfolio_dark.png) | ![Settings](docs/screenshots/settings_dark.png) |
+
+| Markets, light | Pair, light | Portfolio, light | Appearance |
+|---|---|---|---|
+| ![Markets, light](docs/screenshots/markets_light.png) | ![Pair screen, light](docs/screenshots/pair_light.png) | ![Portfolio, light](docs/screenshots/portfolio_light.png) | ![Appearance](docs/screenshots/appearance_light.png) |
 
 Screenshots are from the iOS simulator on live Binance data (the simulator
 runs in Russian; the app ships en and ru). Prices and the 24h change stream
@@ -42,6 +50,7 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Claude API: streaming, tool use, structured output | `packages/ai_insights` (day 6) |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage on day 7 |
 | Deferred deep links, attribution, push | `apps/mobile` (day 7) |
+| Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
 | Unit / golden / Patrol tests, architecture tests | `tooling/arch_test`, `*/test` |
 | GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (day 8) |
 

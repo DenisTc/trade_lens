@@ -64,7 +64,7 @@ void main() {
 
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '35,000.00 USDT',
+      '35,000.00',
     );
     expect(find.byKey(const Key('valuation_status')), findsOneWidget);
     expect(
@@ -102,7 +102,7 @@ void main() {
     expect(find.textContaining('As of'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '65,000.00 USDT',
+      '65,000.00',
     );
   });
 
@@ -123,7 +123,7 @@ void main() {
     expect(find.text('Портфель'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('portfolio_total'))).data,
-      '2\u00a0000,00 USDT',
+      '2\u00a0000,00',
     );
   });
 

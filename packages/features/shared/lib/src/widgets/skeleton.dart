@@ -1,3 +1,4 @@
+import 'package:features_shared/src/theme/tokens.dart';
 import 'package:flutter/material.dart';
 
 /// Placeholder block that pulses while data loads. Used instead of a
@@ -34,7 +35,7 @@ class _SkeletonState extends State<Skeleton>
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final base = context.tokens.raised;
     return FadeTransition(
       opacity: Tween<double>(
         begin: 0.45,
