@@ -58,7 +58,7 @@ jobs:
       - name: Analyze
         run: melos run analyze
 
-      - name: Test with coverage
+      - name: Test with coverage (goldens run in their own job)
         run: melos run test
 
       - name: Build debug APK
@@ -80,9 +80,12 @@ jobs:
           if-no-files-found: warn
 
   golden:
-    name: golden tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    name: golden tests (macOS)
+    # Goldens are rendered on macOS: text anti-aliasing differs between
+    # macOS and Linux by a fraction of a percent, enough to fail pixel
+    # comparison. Developers regenerate goldens on macOS too.
+    runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
