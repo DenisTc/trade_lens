@@ -59,6 +59,7 @@ final class RemoteInsightsConfigSource implements InsightsConfigSource {
   StreamSubscription<Set<String>>? _updates;
   Future<void>? _configured;
   Future<void>? _fetching;
+  Future<void> _stopping = Future.value();
   var _disposed = false;
 
   InsightsConfig get current => _current ?? _defaults;
@@ -125,7 +126,7 @@ final class RemoteInsightsConfigSource implements InsightsConfigSource {
   void _stop() {
     final updates = _updates;
     _updates = null;
-    unawaited(updates?.cancel());
+    if (updates != null) _stopping = _stopping.then((_) => updates.cancel());
   }
 
   Future<void> _configure() async {
@@ -171,10 +172,12 @@ final class RemoteInsightsConfigSource implements InsightsConfigSource {
     _controller.add(next);
   }
 
+  /// Completes once the realtime subscription's cancellation has finished.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
     _stop();
+    await _stopping;
     await _controller.close();
   }
 }

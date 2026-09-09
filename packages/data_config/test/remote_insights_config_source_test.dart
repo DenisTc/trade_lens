@@ -88,6 +88,19 @@ final class _SlowConfigureClient extends FakeClient {
   }
 }
 
+final class _SlowCancelClient extends FakeClient {
+  _SlowCancelClient(this.cancelled);
+
+  final Completer<void> cancelled;
+
+  @override
+  Stream<Set<String>> get onUpdated {
+    late final StreamController<Set<String>> c;
+    c = StreamController<Set<String>>(onCancel: () => cancelled.future);
+    return c.stream;
+  }
+}
+
 void main() {
   const defaults = InsightsConfig(
     insightsScreenJson: '{"schema":1,"children":[]}',
@@ -164,8 +177,10 @@ void main() {
       client.fetchGate!.complete();
       async.flushMicrotasks();
       expect(seen, [defaults]);
-      unawaited(sub.cancel());
-      async.flushMicrotasks();
+      // Not cancelled here: a subscription cancelled inside fakeAsync
+      // returns a root-zone null future that never completes in the fake
+      // zone; tearDown's dispose() closes it in real time instead.
+      expect(sub.isPaused, isFalse);
     });
   });
 
@@ -185,6 +200,26 @@ void main() {
       seen.where((c) => c.insightsScreenJson.contains('[5]')),
       hasLength(1),
     );
+  });
+
+  test('dispose waits for a slow realtime cancellation', () async {
+    final cancelled = Completer<void>();
+    final slow = _SlowCancelClient(cancelled);
+    final s = RemoteInsightsConfigSource(
+      client: slow,
+      defaults: defaults,
+      minimumFetchInterval: Duration.zero,
+    );
+    final sub = s.watch().listen((_) {});
+    await settle();
+    var disposed = false;
+    final disposing = s.dispose().then((_) => disposed = true);
+    await settle();
+    expect(disposed, isFalse, reason: 'cancel has not completed yet');
+    cancelled.complete();
+    await disposing;
+    expect(disposed, isTrue);
+    await sub.cancel();
   });
 
   test('dispose completes watch() streams', () async {
