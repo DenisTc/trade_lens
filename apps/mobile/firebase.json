@@ -1,0 +1,33 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tradelens-dead2",
+          "appId": "1:992056820500:android:a7053e248109c21654f801",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "tradelens-dead2",
+          "appId": "1:992056820500:ios:d5830d0eedc6f20f54f801",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tradelens-dead2",
+          "configurations": {
+            "android": "1:992056820500:android:a7053e248109c21654f801",
+            "ios": "1:992056820500:ios:d5830d0eedc6f20f54f801"
+          }
+        }
+      }
+    }
+  },
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  }
+}

@@ -1,0 +1,21 @@
+name: data_config
+description: "TradeLens · remote configuration (Firebase Remote Config) behind the domain InsightsConfigSource."
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.0"
+dependencies:
+  core:
+  domain:
+  firebase_core: ^4.14.0
+  firebase_remote_config: ^6.6.0
+  flutter:
+    sdk: flutter
+  meta: ^1.16.0
+dev_dependencies:
+  fake_async: ^1.3.3
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0

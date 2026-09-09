@@ -29,6 +29,11 @@ class HomeShell extends StatelessWidget {
             label: l10n.tabMarkets,
           ),
           GlassTab(
+            key: const Key('tab_insights'),
+            icon: Icons.auto_awesome_outlined,
+            label: l10n.tabInsights,
+          ),
+          GlassTab(
             key: const Key('tab_portfolio'),
             icon: Icons.pie_chart_outline,
             label: l10n.tabPortfolio,

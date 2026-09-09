@@ -49,6 +49,17 @@ jobs:
           echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
           "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
 
+      - name: Firebase configuration (stub unless secrets are set)
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          [ -n "$FIREBASE_OPTIONS_DART" ] && printf '%s' "$FIREBASE_OPTIONS_DART" | base64 -d > apps/mobile/lib/firebase_options.dart || true
+          [ -n "$GOOGLE_SERVICES_JSON" ] && printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > apps/mobile/android/app/google-services.json || true
+          [ -n "$GOOGLE_SERVICE_INFO_PLIST" ] && printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" | base64 -d > apps/mobile/ios/Runner/GoogleService-Info.plist || true
+          sh tooling/scripts/firebase_stub.sh
+
       - name: Generate code
         run: melos run generate
 
