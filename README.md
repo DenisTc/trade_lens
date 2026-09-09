@@ -7,12 +7,12 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: **day 5 of 8 + design** · data sources, region fallback, pinning,
-> the WebSocket layer, markets list, pair screen with a CustomPainter chart,
-> portfolio on Drift with offline valuation, locales en/ru, settings and
-> About, and the «Оптика» design (dark and light themes, glass tab bar,
-> app icon). Next: Remote Config + SDUI and the Claude API summary.
-> See [the plan](docs/spec/tradelens-prd-tid-v1.2.md#план-по-дням).
+> Status: data sources with region fallback and pinning, the WebSocket
+> layer, markets list, pair screen with a CustomPainter chart, portfolio on
+> Drift with offline valuation, locales en/ru, settings, the «Оптика»
+> design (dark and light themes, glass tab bar, app icon), store
+> screenshots. Next: Remote Config + SDUI, the Claude API summary, deep
+> links, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
 
 ## Screens
 
@@ -133,3 +133,10 @@ from `docs/` via GitHub Pages (enable Pages → `main` / `docs` once).
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Store screenshots
+
+`docs/store/` holds framed screenshots for App Store (6.9″, 1320×2868) and
+Google Play (1080×2340) in Russian and English, composed by
+`docs/store/build.py` from simulator captures taken with
+`--dart-define=TL_INITIAL_ROUTE=… --dart-define=TL_LOCALE=… --dart-define=TL_DEMO_PORTFOLIO=true`.
