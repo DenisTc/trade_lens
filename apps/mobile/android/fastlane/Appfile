@@ -1,0 +1,2 @@
+json_key_file(ENV["SUPPLY_JSON_KEY"] || "fastlane/play-service-account.json")
+package_name(ENV["TL_PACKAGE_NAME"] || "com.denistc.tradelens")

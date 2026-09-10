@@ -31,3 +31,8 @@ env.json
 
 # golden failures
 **/test/**/failures/
+
+# Release signing and upload material: written from secrets, never committed.
+*.jks
+apps/mobile/android/fastlane/play-service-account.json
+apps/mobile/ios/ExportOptions.plist

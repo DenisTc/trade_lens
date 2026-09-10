@@ -1,0 +1,135 @@
+# TradeLens · iOS release lanes.
+#
+# The division of labour is deliberate: `match` installs the signing
+# assets, Xcode builds and signs through `flutter build ipa`, and Fastlane
+# only uploads. Nothing here archives a second time.
+#
+# What the lane needs, from the environment and never from this file:
+# MATCH_GIT_URL, MATCH_PASSWORD, ASC_KEY_ID, ASC_ISSUER_ID,
+# ASC_KEY_CONTENT (the .p8 in base64). See README, "Releases".
+
+default_platform(:ios)
+
+APP_ID = ENV["TL_BUNDLE_ID"] || "com.denistc.tradelens"
+TEAM_ID = ENV["TL_TEAM_ID"] || "Y7Y46ZWSRU"
+
+platform :ios do
+  desc "Build a signed IPA and upload it to TestFlight"
+  lane :beta do
+    # A temporary keychain, so a build never touches the login keychain
+    # of whoever's machine this happens to be.
+    setup_ci if is_ci
+
+    key = asc_api_key
+
+    match(
+      type: "appstore",
+      app_identifier: APP_ID,
+      # On CI the certificate repository is read-only: a build must never
+      # mint a new certificate and invalidate the ones already in use.
+      readonly: is_ci,
+      api_key: key,
+    )
+
+    profile = ENV["sigh_#{APP_ID}_appstore_profile-name"]
+    UI.user_error!("match installed no profile for #{APP_ID}") if profile.nil?
+
+    build = ENV["TL_BUILD_NUMBER"] || (latest_testflight_build_number(
+      app_identifier: APP_ID,
+      api_key: key,
+      initial_build_number: 0,
+    ) + 1).to_s
+
+    flutter(
+      "build", "ipa",
+      "--release",
+      "--build-number=#{build}",
+      "--dart-define-from-file=#{env_file}",
+      "--export-options-plist=#{export_options_plist(profile)}",
+    )
+
+    upload_to_testflight(
+      ipa: ipa_path,
+      app_identifier: APP_ID,
+      api_key: key,
+      # The internal group gets the build at once; only the external one
+      # waits for Beta App Review.
+      skip_waiting_for_build_processing: true,
+      changelog: changelog,
+    )
+  end
+
+  desc "Install the signing assets without building (first run on a machine)"
+  lane :certificates do
+    setup_ci if is_ci
+    match(type: "appstore", app_identifier: APP_ID, readonly: is_ci)
+  end
+end
+
+# App Store Connect API key from secrets. It authorises the upload and the
+# build-number lookup; it does not replace `match` or the keychain.
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: require_env("ASC_KEY_ID"),
+    issuer_id: require_env("ASC_ISSUER_ID"),
+    key_content: require_env("ASC_KEY_CONTENT"),
+    is_key_content_base64: true,
+    in_house: false,
+  )
+end
+
+# The export options Xcode signs the archive with, written from the
+# profile `match` just installed. Never committed: the profile name
+# changes with the certificate.
+def export_options_plist(profile)
+  path = File.expand_path("../ExportOptions.plist", __dir__)
+  File.write(path, <<~PLIST)
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>method</key><string>app-store</string>
+      <key>teamID</key><string>#{TEAM_ID}</string>
+      <key>signingStyle</key><string>manual</string>
+      <key>uploadSymbols</key><true/>
+      <key>provisioningProfiles</key>
+      <dict>
+        <key>#{APP_ID}</key><string>#{profile}</string>
+      </dict>
+    </dict>
+    </plist>
+  PLIST
+  path
+end
+
+def flutter(*args)
+  Dir.chdir(File.expand_path("../..", __dir__)) { sh(*flutter_bin, *args) }
+end
+
+# CI installs the SDK from `.fvmrc` onto the PATH; a developer machine
+# has it under fvm.
+def flutter_bin
+  return ["flutter"] if ENV["CI"]
+
+  system("command -v fvm > /dev/null 2>&1") ? %w[fvm flutter] : ["flutter"]
+end
+
+def ipa_path
+  path = Dir[File.expand_path("../../build/ios/ipa/*.ipa", __dir__)].first
+  UI.user_error!("flutter build ipa produced no .ipa") if path.nil?
+  path
+end
+
+# Keys and DSNs come from a file CI writes from its secrets; the example
+# file keeps a local run working with everything empty.
+def env_file
+  ENV["TL_ENV_FILE"] || "../../env.example.json"
+end
+
+def changelog
+  ENV["TL_CHANGELOG"] || `git log -1 --pretty=%s`.strip
+end
+
+def require_env(name)
+  ENV[name] || UI.user_error!("#{name} is not set; see README, \"Releases\"")
+end

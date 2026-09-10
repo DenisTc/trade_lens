@@ -150,6 +150,41 @@ that framework embedded in the runner. On Android the wiring is
 CI runs the scenarios on an iOS simulator for `main` and for any pull
 request labelled `e2e`; the `.xcresult` bundle is uploaded when they fail.
 
+## Releases
+
+Fastlane owns the upload and nothing else. `match` installs the signing
+assets, Xcode builds and signs through `flutter build ipa`, and the lane
+only hands the result to TestFlight — no second archive, no
+`build_app`. Android is the same shape: Gradle signs the bundle, `supply`
+uploads it to the internal track as a draft.
+
+```bash
+cd apps/mobile/ios     && bundle exec fastlane beta        # → TestFlight
+cd apps/mobile/android && bundle exec fastlane internal    # → Play internal track
+```
+
+`.github/workflows/release.yml` runs the iOS lane on a `v*` tag and the
+Android one on demand. Both check their secrets first and stop green when
+they are missing, so tagging a fork never fails on someone else's
+credentials.
+
+| Secret | What it is |
+| --- | --- |
+| `MATCH_GIT_URL`, `MATCH_PASSWORD` | private certificates repository and its passphrase |
+| `MATCH_GIT_BASIC_AUTHORIZATION` | token for that repository, base64 `user:token` |
+| `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT` | App Store Connect API key; the `.p8` in base64 |
+| `ANDROID_KEYSTORE`, `ANDROID_KEY_PROPERTIES` | upload keystore and its `key.properties`, base64 |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Play service account, base64 |
+| `ENV_JSON` | the `env.json` of runtime keys, base64 |
+
+A release build signs with the upload key when `android/key.properties`
+exists and with the debug key otherwise, so `flutter run --release` keeps
+working on a machine that has no keystore.
+
+The lanes are complete but have never uploaded: TestFlight needs a paid
+Apple Developer account and Play a one-off registration, both parked in
+[the backlog](docs/decisions/backlog.md).
+
 ## Decisions
 
 - [ADR-0001 · Monorepo layout and layer rules](docs/decisions/0001-monorepo-layout.md)
