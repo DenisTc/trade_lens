@@ -37,4 +37,10 @@
   заведён. Строка в резюме отличается, техника нет.
 - **Отпечаток релизного ключа в `assetlinks.json`.** Сейчас там ключ
   отладочной подписи, то есть проверяются только dev-сборки.
-- **TestFlight.** Apple Developer, $99 в год.
+- **TestFlight.** Apple Developer, $99 в год. Lane `beta` и workflow по
+  тегу `v*` написаны и лежат в репозитории; им не хватает только аккаунта,
+  приватного репозитория сертификатов для `match` и ключа App Store
+  Connect. Список секретов — в README, раздел «Releases».
+- **Google Play internal track.** Регистрация разработчика, $25
+  единоразово. Lane `internal` написан, нужен upload-ключ и
+  service account.

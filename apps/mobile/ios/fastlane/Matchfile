@@ -1,0 +1,6 @@
+# Certificates and profiles live in a private repository, never here.
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier([ENV["TL_BUNDLE_ID"] || "com.denistc.tradelens"])
+readonly(ENV["CI"] == "true")
