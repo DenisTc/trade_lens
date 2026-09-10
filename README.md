@@ -116,6 +116,36 @@ market-data host, Binance.US or the CoinGecko fallback):
 cd packages/data_market && dart run tool/probe_sources.dart
 ```
 
+## End-to-end tests
+
+Two Patrol scenarios in `apps/mobile/integration_test/app_test.dart` drive
+the real app against the live network:
+
+1. markets → BTC/USDT → chart → add a position → the portfolio values it;
+2. switching the source to CoinGecko hides the order book and the interval
+   pills, and the chart says which candles it draws.
+
+```bash
+dart pub global activate patrol_cli 4.7.0   # pinned as a pair with `patrol` in pubspec.yaml
+cd apps/mobile
+patrol test --target integration_test/app_test.dart -d <simulator udid>   # xcrun simctl list devices
+patrol test --target integration_test/app_test.dart -d <emulator id>      # adb devices
+```
+
+Nothing asserts a price — the numbers move. The scenarios assert what has
+to hold whichever source answers, and they clean up after themselves (the
+portfolio is emptied, the source is set back to *auto*) so a device can run
+them repeatedly.
+
+The iOS runner is a `RunnerUITests` target that links
+`FlutterGeneratedPluginSwiftPackage`: this project uses Swift Package
+Manager, not CocoaPods, so the Patrol setup differs from the one in its
+README. On Android the wiring is `PatrolJUnitRunner` plus the AndroidX test
+orchestrator in `android/app/build.gradle.kts`.
+
+CI runs the scenarios on an iOS simulator for `main` and for any pull
+request labelled `e2e`; the `.xcresult` bundle is uploaded when they fail.
+
 ## Decisions
 
 - [ADR-0001 · Monorepo layout and layer rules](docs/decisions/0001-monorepo-layout.md)
