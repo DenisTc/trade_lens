@@ -1,0 +1,61 @@
+# TradeLens · Android release lane.
+#
+# The counterpart of the iOS `beta`: Gradle builds and signs the bundle
+# through `flutter build appbundle`, `supply` only uploads it to the
+# internal track.
+#
+# What the lane needs, from the environment: SUPPLY_JSON_KEY (path to the
+# Play service-account JSON CI writes from a secret) and the signing
+# properties Gradle reads. See README, "Releases".
+
+default_platform(:android)
+
+platform :android do
+  desc "Build a signed app bundle and upload it to the internal track"
+  lane :internal do
+    # Play wants a versionCode that only ever grows, and it must not
+    # collide with an upload from the same hour: seconds since the epoch
+    # are monotonic and stay under Play's 2_100_000_000 ceiling until 2036.
+    build = ENV["TL_BUILD_NUMBER"] || Time.now.to_i.to_s
+
+    flutter(
+      "build", "appbundle",
+      "--release",
+      "--build-number=#{build}",
+      "--dart-define-from-file=#{env_file}",
+    )
+
+    upload_to_play_store(
+      track: "internal",
+      aab: aab_path,
+      # The showcase build has no release notes to translate and no
+      # staged rollout to manage.
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: "draft",
+    )
+  end
+end
+
+def flutter(*args)
+  Dir.chdir(File.expand_path("../..", __dir__)) { sh(*flutter_bin, *args) }
+end
+
+def flutter_bin
+  return ["flutter"] if ENV["CI"]
+
+  system("command -v fvm > /dev/null 2>&1") ? %w[fvm flutter] : ["flutter"]
+end
+
+def aab_path
+  path = Dir[File.expand_path(
+    "../../build/app/outputs/bundle/release/*.aab", __dir__
+  )].first
+  UI.user_error!("flutter build appbundle produced no .aab") if path.nil?
+  path
+end
+
+def env_file
+  ENV["TL_ENV_FILE"] || "../../env.example.json"
+end

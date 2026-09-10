@@ -8,12 +8,26 @@ move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
 > Status: data sources with region fallback and pinning, the WebSocket
-> layer, markets list, pair screen with a CustomPainter chart, portfolio on
-> Drift with offline valuation, locales en/ru, settings, the «Оптика»
-> design (dark and light themes, glass tab bar, app icon), store
-> screenshots, the server-driven Insights screen from Firebase Remote
-> Config, the AI move summary on the user's own Claude API key. Next: deep
-> links and attribution, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+> layer, markets list, pair screen with a CustomPainter chart, portfolio
+> on Drift with offline valuation, locales en/ru, the «Оптика» design
+> (dark and light themes, glass tab bar, app icon), store screenshots, the
+> server-driven Insights screen from Firebase Remote Config, the AI move
+> summary on the user's own Claude API key, deep links, Patrol e2e in CI
+> and the Fastlane release lanes. Two things from the spec are not here:
+> the TestFlight and Play uploads, which need paid accounts, and the
+> deferred deep link, which needs an attribution SDK behind one — both in
+> [the backlog](docs/decisions/backlog.md). See
+> [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+
+<p align="center">
+  <img src="docs/demo/tradelens.gif" width="320" alt="Markets, the chart with its crosshair, the AI move summary, the portfolio and the light theme">
+</p>
+
+The animation is not a screen recording: `tooling/scripts/record_demo.sh`
+runs a Patrol scenario that drives the app while the host grabs simulator
+frames, and `docs/demo/build.py` assembles them. It can be rebuilt after a
+redesign instead of re-recorded, and the AI summary in it replays the
+bundled example — no key, no tokens.
 
 ## Screens
 
@@ -149,6 +163,42 @@ that framework embedded in the runner. On Android the wiring is
 
 CI runs the scenarios on an iOS simulator for `main` and for any pull
 request labelled `e2e`; the `.xcresult` bundle is uploaded when they fail.
+
+## Releases
+
+Fastlane owns the upload and nothing else. `match` installs the signing
+assets, Xcode builds and signs through `flutter build ipa`, and the lane
+only hands the result to TestFlight — no second archive, no
+`build_app`. Android is the same shape: Gradle signs the bundle, `supply`
+uploads it to the internal track as a draft.
+
+```bash
+cd apps/mobile/ios     && bundle exec fastlane beta        # → TestFlight
+cd apps/mobile/android && bundle exec fastlane internal    # → Play internal track
+```
+
+`.github/workflows/release.yml` runs the iOS lane on an annotated `v*` tag
+(`git tag -a v0.5.0 -m … && git push --follow-tags`) and the Android one on
+demand. Both check their secrets first and stop green when
+they are missing, so tagging a fork never fails on someone else's
+credentials.
+
+| Secret | What it is |
+| --- | --- |
+| `MATCH_GIT_URL`, `MATCH_PASSWORD` | private certificates repository and its passphrase |
+| `MATCH_GIT_BASIC_AUTHORIZATION` | token for that repository, base64 `user:token` |
+| `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT` | App Store Connect API key; the `.p8` in base64 |
+| `ANDROID_KEYSTORE`, `ANDROID_KEY_PROPERTIES` | upload keystore and its `key.properties`, base64 |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Play service account, base64 |
+| `ENV_JSON` | the `env.json` of runtime keys, base64 |
+
+A release build signs with the upload key when `android/key.properties`
+exists and with the debug key otherwise, so `flutter run --release` keeps
+working on a machine that has no keystore.
+
+The lanes are complete but have never uploaded: TestFlight needs a paid
+Apple Developer account and Play a one-off registration, both parked in
+[the backlog](docs/decisions/backlog.md).
 
 ## Decisions
 

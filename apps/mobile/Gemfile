@@ -1,0 +1,5 @@
+# One Gemfile for both platforms: Bundler walks up from ios/ and android/
+# and finds it, so `bundle exec fastlane` works from either.
+source "https://rubygems.org"
+
+gem "fastlane", "~> 2.230"

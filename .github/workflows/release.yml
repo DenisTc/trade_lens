@@ -1,0 +1,179 @@
+name: Release
+
+# Tags are the trigger: `git tag -a v0.5.0 -m ... && git push --follow-tags`
+# builds and uploads — the tag has to be annotated, `--follow-tags` pushes
+# nothing else. The lanes need an Apple Developer account and a Play
+# service account; without their secrets the job says so and stops
+# green, so tagging a fork never fails.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which lane to run
+        required: true
+        default: ios
+        type: choice
+        options: [ios, android]
+
+env:
+  PUB_CACHE: ${{ github.workspace }}/.pub-cache
+
+jobs:
+  testflight:
+    name: fastlane beta (TestFlight)
+    if: github.event_name == 'push' || inputs.platform == 'ios'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the release secrets
+        id: secrets
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          if [ -n "$MATCH_GIT_URL" ] && [ -n "$ASC_KEY_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No signing secrets configured; skipping the TestFlight upload."
+          fi
+
+      - name: Read Flutter version from .fvmrc
+        if: steps.secrets.outputs.ready == 'true'
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: apps/mobile
+
+      - name: Bootstrap workspace
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          dart pub global activate melos
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
+          "$PUB_CACHE/bin/melos" run generate
+
+      - name: Firebase and app configuration
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+          ENV_JSON: ${{ secrets.ENV_JSON }}
+        run: |
+          [ -n "$FIREBASE_OPTIONS_DART" ] && printf '%s' "$FIREBASE_OPTIONS_DART" | base64 -d > apps/mobile/lib/firebase_options.dart || true
+          [ -n "$GOOGLE_SERVICE_INFO_PLIST" ] && printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" | base64 -d > apps/mobile/ios/Runner/GoogleService-Info.plist || true
+          [ -n "$ENV_JSON" ] && printf '%s' "$ENV_JSON" | base64 -d > env.json || cp env.example.json env.json
+          sh tooling/scripts/firebase_stub.sh
+
+      - name: fastlane beta
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: apps/mobile/ios
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          TL_ENV_FILE: ${{ github.workspace }}/env.json
+          TL_CHANGELOG: ${{ github.ref_name }}
+        run: bundle exec fastlane beta
+
+  play_internal:
+    name: fastlane internal (Play)
+    if: github.event_name == 'workflow_dispatch' && inputs.platform == 'android'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the release secrets
+        id: secrets
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          # All three: a keystore without its properties file signs with
+          # the debug key, and Play rejects that bundle.
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] && [ -n "$ANDROID_KEYSTORE" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Play secrets configured; skipping the internal-track upload."
+          fi
+
+      - name: Read Flutter version from .fvmrc
+        if: steps.secrets.outputs.ready == 'true'
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: ruby/setup-ruby@v1
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: apps/mobile
+
+      - name: Bootstrap workspace
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          dart pub global activate melos
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
+          "$PUB_CACHE/bin/melos" run generate
+
+      - name: App configuration and signing
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          ENV_JSON: ${{ secrets.ENV_JSON }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          [ -n "$FIREBASE_OPTIONS_DART" ] && printf '%s' "$FIREBASE_OPTIONS_DART" | base64 -d > apps/mobile/lib/firebase_options.dart || true
+          [ -n "$GOOGLE_SERVICES_JSON" ] && printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > apps/mobile/android/app/google-services.json || true
+          [ -n "$ENV_JSON" ] && printf '%s' "$ENV_JSON" | base64 -d > env.json || cp env.example.json env.json
+          printf '%s' "$ANDROID_KEYSTORE" | base64 -d > apps/mobile/android/app/upload-keystore.jks
+          printf '%s' "$ANDROID_KEY_PROPERTIES" | base64 -d > apps/mobile/android/key.properties
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" | base64 -d > apps/mobile/android/fastlane/play-service-account.json
+          sh tooling/scripts/firebase_stub.sh
+
+      - name: fastlane internal
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: apps/mobile/android
+        env:
+          SUPPLY_JSON_KEY: fastlane/play-service-account.json
+          TL_ENV_FILE: ${{ github.workspace }}/env.json
+        run: bundle exec fastlane internal

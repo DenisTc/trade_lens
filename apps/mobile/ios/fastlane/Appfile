@@ -1,0 +1,4 @@
+app_identifier(ENV["TL_BUNDLE_ID"] || "com.denistc.tradelens")
+apple_id(ENV["TL_APPLE_ID"])
+itc_team_id(ENV["TL_ITC_TEAM_ID"])
+team_id(ENV["TL_TEAM_ID"] || "Y7Y46ZWSRU")
