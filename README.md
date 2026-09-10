@@ -245,4 +245,6 @@ today on both platforms.
 
 A **deferred** deep link (the link survives the trip through the store on a
 first install) needs an attribution SDK such as AppsFlyer, which is not
-wired up.
+wired up. All of this is parked in
+[the backlog](docs/decisions/backlog.md): the custom scheme is the way in,
+and it needs no domain and no account.
