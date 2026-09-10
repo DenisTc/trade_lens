@@ -133,8 +133,8 @@ jobs:
 
   e2e:
     name: patrol e2e (iOS simulator)
-    # Day-1 placeholder: the job exists so the runner, patrol_cli and the
-    # simulator boot are proven before the scenarios land on day 8.
+    # The scenarios drive the live network, so they run on main and on any
+    # pull request labelled `e2e` rather than on every push.
     if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: macos-latest
     timeout-minutes: 45
@@ -151,8 +151,33 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PUB_CACHE }}
+          key: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-
+
+      - name: Bootstrap workspace
+        run: |
+          dart pub global activate melos
+          echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
+          "$PUB_CACHE/bin/melos" bootstrap --enforce-lockfile
+
+      - name: Firebase configuration (stub unless secrets are set)
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          [ -n "$FIREBASE_OPTIONS_DART" ] && printf '%s' "$FIREBASE_OPTIONS_DART" | base64 -d > apps/mobile/lib/firebase_options.dart || true
+          [ -n "$GOOGLE_SERVICE_INFO_PLIST" ] && printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" | base64 -d > apps/mobile/ios/Runner/GoogleService-Info.plist || true
+          sh tooling/scripts/firebase_stub.sh
+
+      - name: Generate code
+        run: melos run generate
+
       # Pinned: patrol_cli and the patrol package must stay a matching pair
-      # (spec, "Тесты"). Bump both together when the day-8 scenarios land.
+      # (spec, "Тесты"). Bump both together.
       - name: Install patrol_cli
         run: |
           dart pub global activate patrol_cli 4.7.0
@@ -160,12 +185,22 @@ jobs:
           "$PUB_CACHE/bin/patrol" --version
 
       - name: Boot iOS simulator
+        id: sim
         run: |
           UDID=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | test("iPhone 1[5-9]")) | .udid' | head -n1)
           echo "Booting $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
 
       - name: Run e2e scenarios
-        run: |
-          echo "No Patrol scenarios yet. Planned for day 8 - startup, pair, portfolio; manual CoinGecko fallback."
+        working-directory: apps/mobile
+        run: patrol test --target integration_test/app_test.dart -d ${{ steps.sim.outputs.udid }}
+
+      - name: Upload xcresult bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patrol-xcresult
+          path: apps/mobile/build/ios_results_*.xcresult
+          if-no-files-found: ignore
