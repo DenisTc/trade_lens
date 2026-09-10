@@ -163,8 +163,9 @@ cd apps/mobile/ios     && bundle exec fastlane beta        # → TestFlight
 cd apps/mobile/android && bundle exec fastlane internal    # → Play internal track
 ```
 
-`.github/workflows/release.yml` runs the iOS lane on a `v*` tag and the
-Android one on demand. Both check their secrets first and stop green when
+`.github/workflows/release.yml` runs the iOS lane on an annotated `v*` tag
+(`git tag -a v0.5.0 -m … && git push --follow-tags`) and the Android one on
+demand. Both check their secrets first and stop green when
 they are missing, so tagging a fork never fails on someone else's
 credentials.
 

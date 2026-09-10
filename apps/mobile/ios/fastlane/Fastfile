@@ -34,6 +34,21 @@ platform :ios do
     profile = ENV["sigh_#{APP_ID}_appstore_profile-name"]
     UI.user_error!("match installed no profile for #{APP_ID}") if profile.nil?
 
+    # The export options below only describe how to repackage the archive;
+    # the archive itself is signed by Xcode, so the target has to be
+    # pointed at the profile `match` just installed. This edits
+    # Runner.xcodeproj — expected on CI, a local run leaves it dirty.
+    update_code_signing_settings(
+      path: "Runner.xcodeproj",
+      targets: ["Runner"],
+      build_configurations: ["Release"],
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      bundle_identifier: APP_ID,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile,
+    )
+
     build = ENV["TL_BUILD_NUMBER"] || (latest_testflight_build_number(
       app_identifier: APP_ID,
       api_key: key,

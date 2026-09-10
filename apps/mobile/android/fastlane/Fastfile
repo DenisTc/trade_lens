@@ -13,7 +13,10 @@ default_platform(:android)
 platform :android do
   desc "Build a signed app bundle and upload it to the internal track"
   lane :internal do
-    build = ENV["TL_BUILD_NUMBER"] || Time.now.strftime("%Y%m%d%H").to_s
+    # Play wants a versionCode that only ever grows, and it must not
+    # collide with an upload from the same hour: seconds since the epoch
+    # are monotonic and stay under Play's 2_100_000_000 ceiling until 2036.
+    build = ENV["TL_BUILD_NUMBER"] || Time.now.to_i.to_s
 
     flutter(
       "build", "appbundle",

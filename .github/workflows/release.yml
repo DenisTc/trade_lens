@@ -1,7 +1,8 @@
 name: Release
 
-# Tags are the trigger: `git tag v0.5.0 && git push --follow-tags` builds
-# and uploads. The lanes need an Apple Developer account and a Play
+# Tags are the trigger: `git tag -a v0.5.0 -m ... && git push --follow-tags`
+# builds and uploads — the tag has to be annotated, `--follow-tags` pushes
+# nothing else. The lanes need an Apple Developer account and a Play
 # service account; without their secrets the job says so and stops
 # green, so tagging a fork never fails.
 on:
@@ -90,7 +91,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          TL_ENV_FILE: ../../../env.json
+          TL_ENV_FILE: ${{ github.workspace }}/env.json
           TL_CHANGELOG: ${{ github.ref_name }}
         run: bundle exec fastlane beta
 
@@ -107,8 +108,11 @@ jobs:
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
         run: |
-          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] && [ -n "$ANDROID_KEYSTORE" ]; then
+          # All three: a keystore without its properties file signs with
+          # the debug key, and Play rejects that bundle.
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ] && [ -n "$ANDROID_KEYSTORE" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -171,5 +175,5 @@ jobs:
         working-directory: apps/mobile/android
         env:
           SUPPLY_JSON_KEY: fastlane/play-service-account.json
-          TL_ENV_FILE: ../../../env.json
+          TL_ENV_FILE: ${{ github.workspace }}/env.json
         run: bundle exec fastlane internal
