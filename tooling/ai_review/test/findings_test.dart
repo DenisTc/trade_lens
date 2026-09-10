@@ -27,17 +27,22 @@ void main() {
       expect(ReviewFindings.parse('{"findings": []}').valueOrNull, isEmpty);
     });
 
-    test('a finding missing what a reader needs is dropped', () {
-      const body = '''
-{"findings": [
-  {"severity": "blocker", "file": "", "title": "t", "detail": "d"},
-  {"severity": "wat", "file": "a.dart", "title": "t", "detail": "d"},
-  {"severity": "risk", "file": "a.dart", "title": "", "detail": "d"},
-  {"file": "a.dart", "title": "t", "detail": "d"},
-  {"severity": "risk", "file": "a.dart", "title": "t", "detail": "d"}
-]}''';
-
-      expect(ReviewFindings.parse(body).valueOrNull, hasLength(1));
+    test('a finding missing what a reader needs fails the whole review', () {
+      // Dropping it would leave a comment that says "nothing found"
+      // about a change the model did have something to say about.
+      for (final finding in [
+        '{"severity": "blocker", "file": "", "title": "t", "detail": "d"}',
+        '{"severity": "wat", "file": "a.dart", "title": "t", "detail": "d"}',
+        '{"severity": "risk", "file": "a.dart", "title": "", "detail": "d"}',
+        '{"file": "a.dart", "title": "t", "detail": "d"}',
+        '"a string where an object should be"',
+      ]) {
+        expect(
+          ReviewFindings.parse('{"findings": [$finding]}'),
+          isA<Err<Object, String>>(),
+          reason: finding,
+        );
+      }
     });
 
     test('a line number that is not one is dropped, the finding stays', () {

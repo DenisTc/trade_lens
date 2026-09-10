@@ -39,23 +39,38 @@ final class GitHubComments {
   }
 
   /// The id of the comment a previous run left, if it is still there.
+  ///
+  /// Both halves matter: the marker, and that a bot wrote it. A person
+  /// who quotes the marker in a comment of their own must never have it
+  /// overwritten. A run outside Actions, with someone's personal token,
+  /// therefore leaves a new comment each time rather than risking that.
   Future<int?> _mine() async {
-    final list = await _send(
-      'GET',
-      '/repos/$repository/issues/$pullRequest/comments?per_page=100',
-      null,
-    );
-    if (list is! List) return null;
-    for (final c in list.reversed) {
-      if (c is Map<String, Object?> &&
-          c['body'] is String &&
-          (c['body']! as String).contains(commentMarker) &&
-          c['id'] is int) {
-        return c['id']! as int;
+    const perPage = 100;
+    for (var page = 1; page <= _maxPages; page++) {
+      final list = await _send(
+        'GET',
+        '/repos/$repository/issues/$pullRequest/comments'
+            '?per_page=$perPage&page=$page',
+        null,
+      );
+      if (list is! List) return null;
+      for (final c in list.reversed) {
+        if (c is! Map<String, Object?> || c['id'] is! int) continue;
+        final body = c['body'];
+        final user = c['user'];
+        final isBot = user is Map<String, Object?> && user['type'] == 'Bot';
+        if (isBot && body is String && body.contains(commentMarker)) {
+          return c['id']! as int;
+        }
       }
+      if (list.length < perPage) return null;
     }
     return null;
   }
+
+  /// Ten pages of comments is a thousand: past that, a duplicate review
+  /// is a smaller problem than the time spent looking for the old one.
+  static const _maxPages = 10;
 
   Future<Object?> _send(String method, String path, Object? body) async {
     final request = await _client.openUrl(

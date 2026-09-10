@@ -92,6 +92,56 @@ void main() {
       expect(selectDiff(raw).files, ['lib/new.dart']);
     });
 
+    test('an unusual name survives git quoting it', () {
+      final raw = [
+        r'diff --git "a/docs/caf\303\251.md" "b/docs/caf\303\251.md"',
+        'index 1111111..2222222 100644',
+        r'--- "a/docs/caf\303\251.md"',
+        r'+++ "b/docs/caf\303\251.md"',
+        '@@ -1 +1 @@',
+        '+text',
+      ].join('\n');
+
+      expect(selectDiff(raw).files, ['docs/café.md']);
+    });
+
+    test('a path containing " b/" is not cut in half', () {
+      final raw = [
+        'diff --git a/docs/old b/file.md b/docs/old b/file.md',
+        'index 1111111..2222222 100644',
+        '--- a/docs/old b/file.md',
+        '+++ b/docs/old b/file.md',
+        '@@ -1 +1 @@',
+        '+text',
+      ].join('\n');
+
+      expect(selectDiff(raw).files, ['docs/old b/file.md']);
+    });
+
+    test('a deleted file is reported by its old path', () {
+      final raw = [
+        'diff --git a/lib/gone.dart b/lib/gone.dart',
+        'deleted file mode 100644',
+        'index 1111111..0000000',
+        '--- a/lib/gone.dart',
+        '+++ /dev/null',
+        '@@ -1 +0,0 @@',
+        '-final x = 1;',
+      ].join('\n');
+
+      expect(selectDiff(raw).files, ['lib/gone.dart']);
+    });
+
+    test('a mode change carries only the header', () {
+      final raw = [
+        'diff --git a/tooling/scripts/format.sh b/tooling/scripts/format.sh',
+        'old mode 100644',
+        'new mode 100755',
+      ].join('\n');
+
+      expect(selectDiff(raw).files, ['tooling/scripts/format.sh']);
+    });
+
     test('an empty diff is empty, not a crash', () {
       expect(selectDiff('').isEmpty, isTrue);
       expect(selectDiff('').files, isEmpty);

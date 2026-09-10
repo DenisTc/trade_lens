@@ -80,8 +80,10 @@ abstract final class ReviewFindings {
     'additionalProperties': false,
   };
 
-  /// Parses the structured response. A malformed document is an error,
-  /// not an empty review: silence would read as approval.
+  /// Parses the structured response. A malformed document, or a single
+  /// entry that cannot be read, is an error rather than an empty review:
+  /// dropping a blocker and printing "nothing found" is the one failure
+  /// this tool must not have.
   static Result<List<Finding>, String> parse(String body) {
     final Object? decoded;
     try {
@@ -97,7 +99,9 @@ abstract final class ReviewFindings {
 
     final out = <Finding>[];
     for (final item in list) {
-      if (item is! Map<String, Object?>) continue;
+      if (item is! Map<String, Object?>) {
+        return const Err('a finding is not an object');
+      }
       final severity = Severity.parse(item['severity']);
       final file = item['file'];
       final title = item['title'];
@@ -108,7 +112,7 @@ abstract final class ReviewFindings {
           title is! String ||
           title.isEmpty ||
           detail is! String) {
-        continue;
+        return Err('a finding is missing what a reader needs: $item');
       }
       final line = item['line'];
       out.add(

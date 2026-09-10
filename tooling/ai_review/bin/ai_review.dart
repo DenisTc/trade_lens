@@ -41,12 +41,17 @@ Future<void> main(List<String> args) async {
   final pr = event?['pull_request'];
   final base = pr is Map<String, Object?> ? pr['base'] : null;
   final baseSha = base is Map<String, Object?> ? base['sha'] as String? : null;
-  final diff = selectDiff(await _diff(baseSha ?? 'origin/main'));
-  if (diff.isEmpty) {
-    stdout.writeln('Nothing to review: the diff has no reviewable file.');
-    return;
+
+  final ReviewDiff diff;
+  switch (await _diff(baseSha ?? 'origin/main')) {
+    case Err(:final error):
+      // A diff we could not take is not a diff with nothing in it.
+      stderr.writeln(error);
+      exitCode = 1;
+      return;
+    case Ok(:final value):
+      diff = selectDiff(value);
   }
-  stdout.writeln('Reviewing ${diff.files.length} file(s).');
 
   final config = AiModelConfig.parse(env['TL_AI_REVIEW_MODEL']);
   final transport = IoClaudeTransport();
@@ -56,6 +61,27 @@ Future<void> main(List<String> args) async {
     apiToken: token,
   );
   try {
+    if (diff.isEmpty) {
+      if (diff.truncated.isEmpty) {
+        stdout.writeln('Nothing to review: the diff has no reviewable file.');
+        return;
+      }
+      // Everything reviewable was too large to send. Saying so is the
+      // whole point: silence here would read as a clean review.
+      await comments.post(
+        renderComment(
+          const [],
+          diff: diff,
+          model: config.model,
+          usage: const Usage(),
+          costUsd: 0,
+        ),
+      );
+      stdout.writeln('The diff was too large to review; said so on the PR.');
+      return;
+    }
+    stdout.writeln('Reviewing ${diff.files.length} file(s).');
+
     final response = await transport.post(
       reviewRequest(
         diff,
@@ -68,7 +94,9 @@ Future<void> main(List<String> args) async {
     );
     final body = await response.body.transform(utf8.decoder).join();
     if (response.status != 200) {
-      stderr.writeln('The API answered ${response.status}: ${_head(body)}');
+      stderr
+        ..writeln('The API answered ${response.status}:')
+        ..writeln(_quoted(_head(body)));
       exitCode = 1;
       return;
     }
@@ -85,7 +113,9 @@ Future<void> main(List<String> args) async {
         }
         switch (ReviewFindings.parse(value.text)) {
           case Err(:final error):
-            stderr.writeln('Unusable findings: $error\n${_head(value.text)}');
+            stderr
+              ..writeln('Unusable findings:')
+              ..writeln(_quoted('$error\n${_head(value.text)}'));
             exitCode = 1;
           case Ok(value: final findings):
             final comment = renderComment(
@@ -99,8 +129,10 @@ Future<void> main(List<String> args) async {
               ),
             );
             await comments.post(comment);
-            stdout.writeln(comment);
             await _summary(comment);
+            stdout.writeln(
+              '${findings.length} finding(s) posted on pull request $number.',
+            );
         }
     }
   } on AiError catch (e) {
@@ -114,7 +146,7 @@ Future<void> main(List<String> args) async {
 
 /// `git diff base...HEAD`: what this branch changed, not what happened on
 /// the base since it forked.
-Future<String> _diff(String base) async {
+Future<Result<String, String>> _diff(String base) async {
   final result = await Process.run('git', [
     'diff',
     '--unified=3',
@@ -122,10 +154,9 @@ Future<String> _diff(String base) async {
     '$base...HEAD',
   ]);
   if (result.exitCode != 0) {
-    stderr.writeln('git diff failed: ${result.stderr}');
-    return '';
+    return Err('git diff against $base failed: ${result.stderr}');
   }
-  return result.stdout as String;
+  return Ok(result.stdout as String);
 }
 
 Map<String, Object?>? _event(String? path) {
@@ -143,3 +174,11 @@ Future<void> _summary(String comment) async {
 int? _int(Object? v) => v is int ? v : int.tryParse('${v ?? ''}');
 
 String _head(String s) => s.length > 400 ? '${s.substring(0, 400)}…' : s;
+
+/// Anything the model or the API produced is untrusted: a line of it
+/// could be `::error::` or `::add-mask::`, which the runner would obey.
+/// Between these markers it is text.
+String _quoted(String text) {
+  final token = 'tl-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+  return '::stop-commands::$token\n$text\n::$token::';
+}

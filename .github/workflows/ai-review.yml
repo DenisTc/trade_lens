@@ -49,9 +49,17 @@ jobs:
           restore-keys: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-
 
       - name: Bootstrap workspace
-        run: dart pub get
+        run: |
+          dart pub get
+          # The reviewer runs the app's Claude client, which sees the
+          # `domain` entities; those are generated and not committed.
+          (cd packages/domain && dart run build_runner build --delete-conflicting-outputs)
 
       - name: Review
+        # A second opinion never fails a pull request: the step reports
+        # its own trouble — a rate limit, an unusable answer — in the log
+        # and leaves the checks alone.
+        continue-on-error: true
         working-directory: tooling/ai_review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

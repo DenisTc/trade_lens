@@ -29,16 +29,30 @@ final class FakeGitHub {
         path: request.uri.path,
         body: body.isEmpty ? null : jsonDecode(body),
       ));
+      final page =
+          int.tryParse(request.uri.queryParameters['page'] ?? '1') ?? 1;
+      final perPage =
+          int.tryParse(request.uri.queryParameters['per_page'] ?? '100') ?? 100;
+      final from = (page - 1) * perPage;
+      final answer = from >= _comments.length
+          ? const <Map<String, Object?>>[]
+          : _comments.sublist(
+              from,
+              (from + perPage).clamp(0, _comments.length),
+            );
       request.response
         ..statusCode = 200
         ..headers.contentType = ContentType.json
-        ..write(request.method == 'GET' ? jsonEncode(_comments) : '{}');
+        ..write(request.method == 'GET' ? jsonEncode(answer) : '{}');
       await request.response.close();
     }
   }
 
   Future<void> stop() => _server.close(force: true);
 }
+
+const _bot = {'type': 'Bot', 'login': 'github-actions[bot]'};
+const _human = {'type': 'User', 'login': 'DenisTc'};
 
 void main() {
   late FakeGitHub github;
@@ -70,8 +84,8 @@ void main() {
 
   test('a rerun replaces its own comment instead of adding one', () async {
     await post('second $commentMarker', [
-      {'id': 1, 'body': 'a human said something'},
-      {'id': 2, 'body': 'an older review $commentMarker'},
+      {'id': 1, 'body': 'a human said something', 'user': _human},
+      {'id': 2, 'body': 'an older review $commentMarker', 'user': _bot},
     ]);
 
     expect(github.requests.last.method, 'PATCH');
@@ -85,11 +99,28 @@ void main() {
     );
   });
 
-  test('a human comment is never edited', () async {
+  test('a human comment carrying the marker is never edited', () async {
     await post('review $commentMarker', [
-      {'id': 1, 'body': 'looks good to me'},
+      {'id': 1, 'body': 'quoting the marker $commentMarker', 'user': _human},
     ]);
 
     expect(github.requests.last.method, 'POST');
   });
+
+  test(
+    'an old review past the first page of comments is still found',
+    () async {
+      await post('again $commentMarker', [
+        for (var i = 0; i < 100; i++)
+          {'id': i, 'body': 'chatter $i', 'user': _human},
+        {'id': 999, 'body': 'the review $commentMarker', 'user': _bot},
+      ]);
+
+      expect(github.requests.last.method, 'PATCH');
+      expect(
+        github.requests.last.path,
+        '/repos/DenisTc/trade_lens/issues/comments/999',
+      );
+    },
+  );
 }
