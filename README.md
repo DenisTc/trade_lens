@@ -237,6 +237,11 @@ today on both platforms.
 - **`assetlinks.json` carries a debug-keystore fingerprint**, which
   verifies development builds only. A Play-signed build needs its own
   fingerprint added to the list.
+- **GitHub Pages serves the association file as
+  `application/octet-stream`**, and Apple requires `application/json`.
+  Pages cannot set response headers, so Universal Links need a host that
+  can (a custom domain behind Cloudflare, Netlify's `_headers`, and so on).
+  Android's App Links do not care about the content type.
 
 A **deferred** deep link (the link survives the trip through the store on a
 first install) needs an attribution SDK such as AppsFlyer, which is not
