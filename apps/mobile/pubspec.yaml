@@ -10,6 +10,7 @@ environment:
 
 dependencies:
   ai_insights:
+  app_links: ^7.2.1
   core:
   data_config:
   data_local:

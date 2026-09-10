@@ -1,0 +1,41 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "Y7Y46ZWSRU.com.denistc.tradelens"
+        ],
+        "components": [
+          {
+            "/": "/trade_lens/p/*",
+            "comment": "One pair"
+          },
+          {
+            "/": "/trade_lens/portfolio*",
+            "comment": "Portfolio, with or without a trailing slash"
+          },
+          {
+            "/": "/trade_lens/insights*",
+            "comment": "Insights"
+          },
+          {
+            "/": "/trade_lens/settings",
+            "comment": "Settings tab"
+          },
+          {
+            "/": "/trade_lens/settings/",
+            "comment": "Settings tab, trailing slash"
+          },
+          {
+            "/": "/trade_lens",
+            "comment": "Markets"
+          },
+          {
+            "/": "/trade_lens/",
+            "comment": "Markets, trailing slash"
+          }
+        ]
+      }
+    ]
+  }
+}

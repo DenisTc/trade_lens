@@ -20,9 +20,39 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- The framework would hand the raw URI to go_router, which
+                 has no route for `tradelens://…` and would show its error
+                 page. DeepLinkLifecycle validates the link and navigates. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- tradelens://p/BTCUSDT: works without a domain or an
+                 account, used by the e2e test and shared QR codes. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="tradelens"/>
+            </intent-filter>
+            <!-- https links, verified against
+                 https://denistc.github.io/.well-known/assetlinks.json -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="denistc.github.io"
+                    android:pathPrefix="/trade_lens/"/>
+                <!-- The bare base path is the markets list. -->
+                <data
+                    android:scheme="https"
+                    android:host="denistc.github.io"
+                    android:path="/trade_lens"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
