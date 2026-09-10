@@ -71,10 +71,11 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
 | Claude API: SSE streaming, tool use, structured output, cost accounting | `packages/ai_insights`, `packages/features/insights/lib/src/ai` |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
-| Deferred deep links, attribution, push | `apps/mobile` (next) |
+| Deep links, custom scheme and https, with an allowlist | `apps/mobile/lib/deep_links.dart`, `apps/mobile/lib/di/deep_link_lifecycle.dart` |
 | Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
-| Unit / golden / Patrol tests, architecture tests | `tooling/arch_test`, `*/test` |
-| GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (next) |
+| Unit / golden / Patrol tests, architecture tests | `*/test`, `apps/mobile/integration_test`, `tooling/arch_test` |
+| GitHub Actions, Fastlane to TestFlight and the Play internal track | `.github/workflows`, `apps/mobile/{ios,android}/fastlane` |
+| The Claude client reused outside the app, reviewing pull requests | `tooling/ai_review` |
 
 ## Layout
 
