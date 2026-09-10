@@ -14,6 +14,11 @@
 - [x] Verified on the simulator: `xcrun simctl openurl booted
       "tradelens://p/ETHUSDT"` opens the pair
 - [x] 23 tests in `apps/mobile`; Codex review, 6 findings fixed
-- [ ] Open: publish the two files at the domain root (needs a
-      `DenisTc.github.io` repo or a custom domain); add the release
-      signing fingerprint; deferred deep links need AppsFlyer
+- [x] Both files served and valid at
+      `https://denistc.github.io/trade_lens/.well-known/…`
+- [ ] Open, and all about the https half: the platforms read them from the
+      domain root, not from a project path (needs a `DenisTc.github.io`
+      repo or a custom domain); Apple also needs the association file
+      served as `application/json`, which Pages cannot do; the release
+      signing fingerprint has to join `assetlinks.json`; deferred deep
+      links need AppsFlyer
