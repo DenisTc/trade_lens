@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Patrol generates the bundled test entrypoint on every run.
+patrol_test/
