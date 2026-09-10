@@ -199,3 +199,45 @@ the first request, because Dio validates a certificate only once the
 response is in. The residual gap (an interceptor that behaves differently
 on the two connections) is written down in
 [ADR-0002](docs/decisions/0002-region-fallback-and-pinning.md).
+
+## Deep links
+
+Two ways in, both handled by one validated mapper
+(`apps/mobile/lib/deep_links.dart`), never by the framework's automatic
+routing:
+
+- `tradelens://p/BTCUSDT` — a custom scheme, so it works with no domain and
+  no developer account. This is what the e2e test and a shared QR code use.
+- `https://denistc.github.io/trade_lens/p/BTCUSDT` — the same route as a
+  normal link, verified by `docs/.well-known/assetlinks.json` (Android App
+  Links) and `docs/.well-known/apple-app-site-association` (iOS Universal
+  Links), both served by GitHub Pages.
+
+A link may only open routes on the same allowlist the server-driven buttons
+use, so `/settings/ai` or another host cannot be opened from outside, and
+the query string is dropped before navigating. Try it on a simulator:
+
+```bash
+xcrun simctl openurl booted "tradelens://p/ETHUSDT"        # iOS
+adb shell am start -a android.intent.action.VIEW -d "tradelens://p/ETHUSDT"
+```
+
+Three honest limits, all about the https half; the custom scheme works
+today on both platforms.
+
+- **The verification files must sit at the domain root.** Both platforms
+  fetch `https://denistc.github.io/.well-known/…`, and a project page is
+  served under `/trade_lens/`, so the copies in `docs/.well-known/` are the
+  content, not the live location. They go live once they are published from
+  a user-site repository (`DenisTc.github.io`) or a custom domain.
+- **Universal Links need a paid Apple Developer account.** The
+  `applinks:` entitlement is in the project, on the Release configuration
+  only, because a free personal team cannot sign it and a device build
+  would stop working. Until then an https link opens the browser.
+- **`assetlinks.json` carries a debug-keystore fingerprint**, which
+  verifies development builds only. A Play-signed build needs its own
+  fingerprint added to the list.
+
+A **deferred** deep link (the link survives the trip through the store on a
+first install) needs an attribution SDK such as AppsFlyer, which is not
+wired up.
