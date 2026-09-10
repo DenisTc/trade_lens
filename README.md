@@ -91,6 +91,7 @@ packages/
   ai_insights/          Claude API client, tools, structured output
   features/shared/      Riverpod providers of the domain interfaces, shared widgets
   features/             markets, portfolio, insights, settings (UI + providers)
+tooling/ai_review/      the pull-request reviewer that runs in CI
 tooling/arch_test/      dependency-direction and coding-rule tests
 docs/decisions/         ADRs, one file per decision
 docs/spec/              PRD + TID this project implements
@@ -199,6 +200,34 @@ working on a machine that has no keystore.
 The lanes are complete but have never uploaded: TestFlight needs a paid
 Apple Developer account and Play a one-off registration, both parked in
 [the backlog](docs/decisions/backlog.md).
+
+## AI review of pull requests
+
+`tooling/ai_review` reviews a pull request from CI: one `git diff`, one
+Claude call with a structured response, one comment. It reuses the app's
+own Claude client — `ai_insights` is pure Dart, so the package that
+streams a move summary on a phone also runs on a GitHub runner, with a
+different transport behind the same interface.
+
+What it does and does not do:
+
+- it reads the diff, not the repository, and skips what a generator or a
+  package manager wrote; the largest files are dropped first when the
+  diff does not fit, and the comment names them so a partial review is
+  not read as a clean one;
+- the diff is untrusted input. A pull request that tells the reviewer to
+  approve it is reported as a blocker rather than obeyed, and the tool
+  has no write access to anything except that one comment;
+- a rerun replaces its own comment instead of leaving one per push;
+- it is a second opinion, never a gate: the job posts and succeeds.
+  Formatting, imports and lints belong to the analyser, which runs in the
+  same CI, so the prompt tells the model to stay off them.
+
+Set `ANTHROPIC_API_KEY` in the repository secrets to turn it on — without
+it the job says so and exits, so a fork never fails on a key it cannot
+have. `TL_AI_REVIEW_MODEL` (a repository variable) takes the same JSON as
+the app's `ai_model` in Remote Config, which is where the model and its
+price live.
 
 ## Decisions
 

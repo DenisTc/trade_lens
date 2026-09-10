@@ -1,0 +1,60 @@
+name: AI review
+
+# A second opinion on a pull request, never a gate: the job posts one
+# comment and always succeeds. Without ANTHROPIC_API_KEY — a fork, or a
+# repository whose owner would rather not pay for it — the tool says so
+# and exits.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PUB_CACHE: ${{ github.workspace }}/.pub-cache
+
+jobs:
+  review:
+    name: review the diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The reviewer diffs against the base commit, which the default
+          # shallow clone does not have.
+          fetch-depth: 0
+
+      - name: Read Flutter version from .fvmrc
+        id: fvm
+        run: echo "version=$(jq -r .flutter .fvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.fvm.outputs.version }}
+          channel: stable
+          cache: true
+
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PUB_CACHE }}
+          key: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ steps.fvm.outputs.version }}-
+
+      - name: Bootstrap workspace
+        run: dart pub get
+
+      - name: Review
+        working-directory: tooling/ai_review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TL_AI_REVIEW_MODEL: ${{ vars.TL_AI_REVIEW_MODEL }}
+        run: dart run bin/ai_review.dart

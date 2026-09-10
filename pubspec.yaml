@@ -18,6 +18,7 @@ workspace:
   - packages/features/insights
   - packages/features/settings
   - apps/mobile
+  - tooling/ai_review
   - tooling/arch_test
 dev_dependencies:
   melos: ^8.6.0
