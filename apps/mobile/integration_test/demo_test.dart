@@ -12,7 +12,10 @@ import 'package:tradelens/main.dart' as app;
 /// The pauses are the point: every step holds long enough for a few
 /// frames to land on it. Run it with `TL_AI_DEMO=true` (the summary
 /// replays the bundled example, no key and no tokens spent) and
-/// `TL_DEMO_PORTFOLIO=true` (a portfolio worth showing).
+/// `TL_DEMO_PORTFOLIO=true` (a portfolio worth showing) — the recorder
+/// passes both. It reinstalls the app first, so the walk-through starts
+/// on the defaults: the source resolved by region, an empty portfolio,
+/// the device's appearance.
 void main() {
   patrolTest('the demo walk-through', ($) async {
     await app.main();
@@ -40,16 +43,18 @@ void main() {
     await _hold($, 1);
     await gesture.up();
 
-    // The AI move summary, replayed from the recorded example.
-    if ($(#move_summary).exists) {
-      await $(#move_summary).tap();
-      if ($(#ai_show_example).exists) await $(#ai_show_example).tap();
-      await $(#ai_summary_text).waitUntilVisible(timeout: _long);
-      await _hold($, 6);
-      // The sheet is modal: a tap on the barrier above it closes it.
-      await $.tester.tapAt(const Offset(30, 70));
-      await _hold($, 1);
-    }
+    // The AI move summary, replayed from the recorded example. The button
+    // is behind the `ai_insights_enabled` flag in Remote Config: without
+    // it the recording would quietly lose its best screen, so this fails
+    // rather than skips.
+    await $(#move_summary).waitUntilVisible(timeout: _long);
+    await $(#move_summary).tap();
+    if ($(#ai_show_example).exists) await $(#ai_show_example).tap();
+    await $(#ai_summary_text).waitUntilVisible(timeout: _long);
+    await _hold($, 6);
+    // The sheet is modal: a tap on the barrier above it closes it.
+    await $.tester.tapAt(const Offset(30, 70));
+    await _hold($, 1);
 
     // The portfolio, valued on the live price.
     await $(#tab_portfolio).tap();

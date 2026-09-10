@@ -38,8 +38,9 @@ def load(path: Path) -> Image.Image:
 
 
 def difference(a: Image.Image, b: Image.Image) -> float:
-    """Mean per-channel difference, 0 for identical frames."""
-    return ImageStat.Stat(ImageChops.difference(a, b)).mean[0]
+    """Mean difference over all three channels, 0 for identical frames."""
+    mean = ImageStat.Stat(ImageChops.difference(a, b)).mean
+    return sum(mean) / len(mean)
 
 
 def demo(src: Path, first: str, last: str) -> list[Image.Image]:

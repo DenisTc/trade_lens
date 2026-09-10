@@ -19,6 +19,13 @@ BUNDLE=com.denistc.tradelens
 rm -rf "$OUT"
 mkdir -p "$FRAMES"
 
+# The demo shows the app as someone installing it would see it: no source
+# a previous run picked, no portfolio it left behind. The appearance is
+# the device's, so it is set too — the walk-through opens dark and
+# switches to light at the end.
+xcrun simctl uninstall "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
+xcrun simctl ui "$UDID" appearance dark >/dev/null 2>&1 || true
+
 # The label ends in `[` so this matches the app and not the UI-test runner,
 # whose bundle id starts with the same string.
 running() {
@@ -40,15 +47,16 @@ grab() {
 }
 
 # `running` costs a round trip into the simulator, which paces this loop
-# without a sleep.
+# without a sleep. `last` is written while the app is up rather than once
+# it is gone: a frame seen after it exits is the home screen.
 watch_app() {
   up=0
   while :; do
     if running; then
       [ "$up" = 1 ] || last_frame > "$OUT/first"
       up=1
+      last_frame > "$OUT/last"
     else
-      [ "$up" = 0 ] || last_frame > "$OUT/last"
       up=0
     fi
   done
