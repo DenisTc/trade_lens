@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.denistc.tradelens",
+      "sha256_cert_fingerprints": [
+        "41:B0:55:7F:39:BD:24:96:BD:17:8C:16:56:E6:D4:61:A4:DD:72:43:EF:61:19:71:23:87:82:2B:0D:D4:79:44"
+      ]
+    }
+  }
+]

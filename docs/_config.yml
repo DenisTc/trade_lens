@@ -1,6 +1,10 @@
 title: TradeLens
 description: Legal pages for the TradeLens mobile app
 theme: jekyll-theme-minimal
+# Jekyll skips dotted paths by default; the link-verification files must
+# be served from /.well-known/ verbatim.
+include:
+  - .well-known
 exclude:
   - superpowers/
   - spec/
