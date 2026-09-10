@@ -11,6 +11,10 @@ import 'package:tradelens/main.dart' as app;
 /// the parts that must hold whichever source answers — that a pair opens,
 /// that a position is valued, and that the REST-only source hides what it
 /// cannot serve.
+///
+/// Each scenario establishes what it needs at the start instead of tidying
+/// up at the end: a device keeps its data between runs, and a run that
+/// fails half-way through never gets to its own cleanup.
 void main() {
   patrolTest(
     'markets → pair → chart, then a position shows up valued in the portfolio',
@@ -21,22 +25,22 @@ void main() {
       // The catalog arrives over the network; the rows are the first
       // thing a user sees.
       await $(markets.PairTile).waitUntilVisible(timeout: _long);
-      await $('BTC/USDT').waitUntilVisible(timeout: _long);
+      await _chooseSource($, #source_auto);
 
-      await $('BTC/USDT').tap();
+      // The quote depends on which source the region resolved to, so the
+      // pair is matched by its base asset.
+      final btc = find.textContaining('BTC/');
+      await $(btc).waitUntilVisible(timeout: _long);
+      await $(btc).tap();
       await $(#pair_chart).waitUntilVisible(timeout: _long);
-      // The pills row is a full-width Row, so its own centre can fall in
-      // the empty space past the last pill: the pill is what has to be
-      // on screen.
-      await $(#interval_selector).$(InkWell).first.waitUntilVisible();
 
       // The tab bar stays put over the pair screen: it lives in the
       // shell, so the portfolio is one tap away.
       await $(#tab_portfolio).tap();
       await $(#add_position).waitUntilVisible(timeout: _long);
 
-      // A device keeps its portfolio between runs, so the scenario starts
-      // from an empty one — which also exercises swipe-to-delete.
+      // Starting from an empty portfolio is what makes the assertion
+      // below mean something; it also exercises swipe-to-delete.
       await _clearPortfolio($);
       await $(#add_position).tap();
 
@@ -46,12 +50,18 @@ void main() {
       await $(#position_save).tap();
 
       // The row is valued at the live price, so only its shape is
-      // asserted: the empty state is gone and the total is no longer the
-      // dash an empty portfolio shows.
+      // asserted: the empty state is gone, the total is no longer the
+      // dash an empty portfolio shows, and the PnL against the 60000
+      // entry is there next to it.
+      final pnl = find.byWidgetPredicate(
+        (w) => w.key.toString().contains('portfolio_pnl_'),
+        description: 'the portfolio PnL chip',
+      );
       await _until(
         $,
         () =>
             !$(#portfolio_empty).exists &&
+            $(pnl).exists &&
             $(#portfolio_total).exists &&
             $(#portfolio_total).text != '—',
       );
@@ -65,36 +75,45 @@ void main() {
     await $.pump();
 
     await $(markets.PairTile).waitUntilVisible(timeout: _long);
-    await $(#tab_settings).tap();
-    await $(#settings_source).waitUntilVisible();
-    await $(#settings_source).tap();
+    await _chooseSource($, #source_coingecko);
 
-    await $(#source_coingecko).waitUntilVisible();
-    await $(#source_coingecko).tap();
-
-    await $(#tab_markets).tap();
     await $(markets.PairTile).waitUntilVisible(timeout: _long);
     await $(markets.PairTile).first.tap();
 
-    // CoinGecko serves prices only: no interval pills, no order book,
-    // and the screen says which candles it is drawing.
+    // CoinGecko serves prices only: the chart draws (the key is on the
+    // chart itself, so candles did arrive), the screen says which candles
+    // those are, and neither the pills nor the book are built. The
+    // presence of both for a full source is a widget test —
+    // `pair_screen_test.dart`.
+    await $(#pair_chart).waitUntilVisible(timeout: _long);
     await $(#prices_only_note).waitUntilVisible(timeout: _long);
     expect($(#interval_selector).exists, isFalse);
-    expect($(#order_book_bids).exists, isFalse);
-
-    // The choice is persisted, and the app is not reinstalled between
-    // runs: leave the source as the suite found it.
-    await $(#tab_settings).tap();
-    // The settings tab restored its own stack, so it reopened on the
-    // source screen; tapping the selected tab pops back to its root.
-    await $(#tab_settings).tap();
-    await $(#settings_source).tap();
-    await $(#source_auto).tap();
+    expect($(markets.OrderBookView).exists, isFalse);
   });
 }
 
 /// Enough for a cold start plus a network round trip on a CI device.
 const _long = Duration(seconds: 60);
+
+/// Picks a data source in Settings and comes back to the markets tab.
+Future<void> _chooseSource(PatrolIntegrationTester $, Symbol source) async {
+  await $(#tab_settings).tap();
+  // The settings tab keeps its own stack, so it can reopen on a screen a
+  // previous run left it on; tapping the selected tab pops to its root.
+  await $(#tab_settings).tap();
+  await $(#settings_source).tap();
+  await $(source).tap();
+  await $(#tab_markets).tap();
+}
+
+/// Swipes away every position, so the run starts from a known portfolio.
+Future<void> _clearPortfolio(PatrolIntegrationTester $) async {
+  while ($(Dismissible).exists) {
+    await $.tester.drag($(Dismissible).first, const Offset(-400, 0));
+    await $.pump(const Duration(milliseconds: 600));
+  }
+  await _until($, () => $(#portfolio_empty).exists);
+}
 
 /// Pumps until [ready] holds, because what we are waiting for is a value
 /// arriving over the network rather than a widget appearing.
@@ -110,13 +129,4 @@ Future<void> _until(
     }
     await $.pump(const Duration(milliseconds: 250));
   }
-}
-
-/// Swipes away every position, so the run starts from a known portfolio.
-Future<void> _clearPortfolio(PatrolIntegrationTester $) async {
-  while ($(Dismissible).exists) {
-    await $.tester.drag($(Dismissible).first, const Offset(-400, 0));
-    await $.pump(const Duration(milliseconds: 600));
-  }
-  await _until($, () => $(#portfolio_empty).exists);
 }

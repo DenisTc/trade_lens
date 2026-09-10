@@ -132,16 +132,20 @@ patrol test --target integration_test/app_test.dart -d <simulator udid>   # xcru
 patrol test --target integration_test/app_test.dart -d <emulator id>      # adb devices
 ```
 
-Nothing asserts a price — the numbers move. The scenarios assert what has
-to hold whichever source answers, and they clean up after themselves (the
-portfolio is emptied, the source is set back to *auto*) so a device can run
-them repeatedly.
+Nothing asserts a price — the numbers move, and the quote depends on which
+source the region resolves to. Each scenario establishes what it needs at
+the start — it picks its source and empties the portfolio — rather than
+tidying up at the end: a device keeps its data between runs, and a run that
+fails half-way never reaches its own cleanup.
 
 The iOS runner is a `RunnerUITests` target that links
 `FlutterGeneratedPluginSwiftPackage`: this project uses Swift Package
 Manager, not CocoaPods, so the Patrol setup differs from the one in its
-README. On Android the wiring is `PatrolJUnitRunner` plus the AndroidX test
-orchestrator in `android/app/build.gradle.kts`.
+README. It is wired for the simulator, where the build products directory
+supplies `Flutter.framework`; running on a physical iPhone would also need
+that framework embedded in the runner. On Android the wiring is
+`PatrolJUnitRunner` plus the AndroidX test orchestrator in
+`android/app/build.gradle.kts`.
 
 CI runs the scenarios on an iOS simulator for `main` and for any pull
 request labelled `e2e`; the `.xcresult` bundle is uploaded when they fail.
