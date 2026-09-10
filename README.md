@@ -7,13 +7,27 @@ portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
 Binance, CoinGecko and Anthropic directly.
 
-> Status: data sources with region fallback and pinning, the WebSocket
-> layer, markets list, pair screen with a CustomPainter chart, portfolio on
-> Drift with offline valuation, locales en/ru, settings, the «Оптика»
-> design (dark and light themes, glass tab bar, app icon), store
-> screenshots, the server-driven Insights screen from Firebase Remote
-> Config, the AI move summary on the user's own Claude API key. Next: deep
-> links and attribution, Patrol e2e, Fastlane. See [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+> Status: everything the spec calls a must-have is in — data sources with
+> region fallback and pinning, the WebSocket layer, markets list, pair
+> screen with a CustomPainter chart, portfolio on Drift with offline
+> valuation, locales en/ru, the «Оптика» design (dark and light themes,
+> glass tab bar, app icon), store screenshots, the server-driven Insights
+> screen from Firebase Remote Config, the AI move summary on the user's
+> own Claude API key, deep links, Patrol e2e in CI and the Fastlane
+> release lanes. What is left needs a paid account rather than code:
+> TestFlight, the Play track, install attribution — see
+> [the backlog](docs/decisions/backlog.md) and
+> [the spec](docs/spec/tradelens-prd-tid-v1.2.md).
+
+<p align="center">
+  <img src="docs/demo/tradelens.gif" width="320" alt="Markets, the chart with its crosshair, the AI move summary, the portfolio and the light theme">
+</p>
+
+The animation is not a screen recording: `tooling/scripts/record_demo.sh`
+runs a Patrol scenario that drives the app while the host grabs simulator
+frames, and `docs/demo/build.py` assembles them. It can be rebuilt after a
+redesign instead of re-recorded, and the AI summary in it replays the
+bundled example — no key, no tokens.
 
 ## Screens
 
