@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chart/src/axes.dart';
 import 'package:chart/src/candle_painter.dart';
 import 'package:chart/src/chart_theme.dart';
@@ -25,6 +27,7 @@ class CandleChart extends StatefulWidget {
     this.overlays = const [],
     this.showVolume = true,
     this.onCrosshair,
+    this.onReachStart,
     this.theme,
     this.initialCandleWidth = 8,
     this.emptyLabel = 'No data',
@@ -36,6 +39,15 @@ class CandleChart extends StatefulWidget {
 
   /// Moving averages drawn over the candles, in this order.
   final List<MovingAverage> overlays;
+
+  /// Called when a pan brings the oldest candles near the left edge: the
+  /// owner may prepend history and returns when it is done or gave up.
+  /// Not called again for the same oldest candle while the returned
+  /// future is pending; once it completes, a further pan asks again, so
+  /// a failed page is retried and a page with nothing older costs one
+  /// cheap call. Candles that arrive in front shift the viewport by their
+  /// count, so what was under the finger stays there.
+  final Future<void> Function()? onReachStart;
   final bool showVolume;
   final ValueChanged<CrosshairInfo?>? onCrosshair;
   final CandleChartTheme? theme;
@@ -66,12 +78,37 @@ class CandleChartState extends State<CandleChart> {
 
   ChartViewport get currentViewport => viewport;
 
+  /// The oldest candle a pending [CandleChart.onReachStart] was asked for.
+  DateTime? _asking;
+
   @override
   void didUpdateWidget(CandleChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.series, widget.series) && _following) {
+    if (identical(oldWidget.series, widget.series)) return;
+    if (_following) {
       viewport = viewport.stickToEnd(widget.series.length, _plotWidth);
+      return;
     }
+    final prepended = _prependedCount(oldWidget.series, widget.series);
+    if (prepended > 0) {
+      viewport = viewport.copyWith(firstIndex: viewport.firstIndex + prepended);
+      // A gesture in progress is measured from its own origin; shifted
+      // too, or its next update would undo the shift under the finger.
+      _scaleStart = _scaleStart?.copyWith(
+        firstIndex: _scaleStart!.firstIndex + prepended,
+      );
+    }
+  }
+
+  /// How many candles [next] has in front of the first candle of [old].
+  static int _prependedCount(CandleSeries old, CandleSeries next) {
+    final first = old.last == null ? null : old[0].openTime;
+    if (first == null) return 0;
+    var n = 0;
+    while (n < next.length && next[n].openTime.isBefore(first)) {
+      n++;
+    }
+    return n;
   }
 
   @override
@@ -220,6 +257,21 @@ class CandleChartState extends State<CandleChart> {
       viewport = next;
       _following = next.isAtEnd(total, _plotWidth);
     });
+    // Ask a screen's width ahead of the edge, so the page is there before
+    // the pan runs out of candles.
+    final callback = widget.onReachStart;
+    final oldest = total == 0 ? null : widget.series[0].openTime;
+    if (callback != null &&
+        oldest != null &&
+        _asking == null &&
+        next.firstIndex < next.visibleCount(_plotWidth)) {
+      _asking = oldest;
+      unawaited(
+        callback().whenComplete(() {
+          if (mounted && _asking == oldest) _asking = null;
+        }),
+      );
+    }
   }
 
   void _setCrosshair(Offset? local) {

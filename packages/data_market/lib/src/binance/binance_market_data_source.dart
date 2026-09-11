@@ -108,6 +108,7 @@ final class BinanceMarketDataSource implements MarketDataSource {
     Interval interval, {
     int limit = 500,
     DateTime? startTime,
+    DateTime? before,
   }) async {
     if (interval.duration == null) {
       throw ArgumentError.value(
@@ -122,6 +123,9 @@ final class BinanceMarketDataSource implements MarketDataSource {
         interval,
         limit: limit,
         startTime: startTime,
+        // endTime is inclusive of a candle opening at that instant; the
+        // caller wants strictly older ones.
+        endTime: before?.subtract(const Duration(milliseconds: 1)),
       );
       return Ok([for (final row in rows) parseKline(row)]);
     } on DioException catch (e) {

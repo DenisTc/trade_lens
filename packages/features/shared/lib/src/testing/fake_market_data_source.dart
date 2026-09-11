@@ -24,12 +24,19 @@ final class FakeMarketDataSource implements MarketDataSource {
 
   /// When set, [klines] fails with this error.
   final MarketError? klinesError;
+
+  /// When set, every [klines] answer waits for it first, so a test can
+  /// hold a page or a refresh in flight.
+  Future<void>? klinesGate;
   final Map<String, int> listeners = {};
   final Map<String, StreamController<Quote>> _controllers = {};
   final Map<String, StreamController<Candle>> _klines = {};
   final Map<String, StreamController<OrderBookSnapshot>> _books = {};
   final Map<String, StreamController<Trade>> _trades = {};
   final List<(Instrument, Interval)> klineRequests = [];
+
+  /// Every `before` a paging request carried, in order.
+  final List<DateTime> olderRequests = [];
 
   @override
   String get id => 'fake';
@@ -80,10 +87,20 @@ final class FakeMarketDataSource implements MarketDataSource {
     Instrument instrument,
     Interval interval, {
     int limit = 500,
+    DateTime? before,
   }) async {
     klineRequests.add((instrument, interval));
+    if (before != null) olderRequests.add(before);
+    await klinesGate;
     final error = klinesError;
-    return error == null ? Ok(history) : Err(error);
+    if (error != null) return Err(error);
+    final page = before == null
+        ? history
+        : [
+            for (final c in history)
+              if (c.openTime.isBefore(before)) c,
+          ];
+    return Ok(page.length <= limit ? page : page.sublist(page.length - limit));
   }
 
   void emitCandle(Instrument instrument, Candle candle) =>
