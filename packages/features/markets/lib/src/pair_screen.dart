@@ -120,11 +120,9 @@ class PairScreen extends ConsumerWidget {
                   key: const Key('pair_chart'),
                   series: chartSeries,
                   overlays: overlaysOn ? chartOverlays(context) : const [],
-                  onReachStart: () => unawaited(
-                    ref
-                        .read(candlesProvider(instrument, interval).notifier)
-                        .loadOlder(),
-                  ),
+                  onReachStart: () => ref
+                      .read(candlesProvider(instrument, interval).notifier)
+                      .loadOlder(),
                   interval: chartIntervalFor(
                     interval,
                     candles.value ?? const [],

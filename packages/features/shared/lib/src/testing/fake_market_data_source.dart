@@ -24,6 +24,10 @@ final class FakeMarketDataSource implements MarketDataSource {
 
   /// When set, [klines] fails with this error.
   final MarketError? klinesError;
+
+  /// When set, every [klines] answer waits for it first, so a test can
+  /// hold a page or a refresh in flight.
+  Future<void>? klinesGate;
   final Map<String, int> listeners = {};
   final Map<String, StreamController<Quote>> _controllers = {};
   final Map<String, StreamController<Candle>> _klines = {};
@@ -87,6 +91,7 @@ final class FakeMarketDataSource implements MarketDataSource {
   }) async {
     klineRequests.add((instrument, interval));
     if (before != null) olderRequests.add(before);
+    await klinesGate;
     final error = klinesError;
     if (error != null) return Err(error);
     final page = before == null
