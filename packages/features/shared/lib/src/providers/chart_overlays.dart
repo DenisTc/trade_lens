@@ -16,9 +16,13 @@ class ChartOverlaysSetting extends _$ChartOverlaysSetting {
       .watch(SettingsKeys.chartOverlays)
       .map((v) => v == 'true');
 
+  /// Flips the stored value, not the displayed one: two quick taps must
+  /// end where they started even if the stream has not caught up with
+  /// the first write yet.
   Future<void> toggle() async {
     final store = ref.read(settingsStoreProvider);
-    if (state.value ?? false) {
+    final on = await store.read(SettingsKeys.chartOverlays) == 'true';
+    if (on) {
       await store.delete(SettingsKeys.chartOverlays);
     } else {
       await store.write(SettingsKeys.chartOverlays, 'true');

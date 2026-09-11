@@ -78,14 +78,19 @@ class PairScreen extends ConsumerWidget {
             child: Row(
               children: [
                 if (capabilities.intervals.length > 1)
+                  // Scrolls rather than overflows: with large text and a
+                  // narrow phone the pills no longer fit beside the toggle.
                   Expanded(
-                    child: IntervalPills(
-                      key: const Key('interval_selector'),
-                      intervals: capabilities.intervals,
-                      selected: interval,
-                      onSelected: (iv) =>
-                          ref.read(selectedIntervalProvider.notifier).value =
-                              iv,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: IntervalPills(
+                        key: const Key('interval_selector'),
+                        intervals: capabilities.intervals,
+                        selected: interval,
+                        onSelected: (iv) =>
+                            ref.read(selectedIntervalProvider.notifier).value =
+                                iv,
+                      ),
                     ),
                   )
                 else

@@ -1,4 +1,5 @@
 import 'package:chart/chart.dart';
+import 'package:chart/src/candle_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,12 +42,58 @@ void main() {
     expect(ma.compute(const []), isEmpty);
   });
 
-  test('a long series does not drift: the running sum stays exact', () {
-    // 1, 2, 1, 2, … a hundred thousand times; every window of 2 averages 1.5.
-    final many = [for (var i = 0; i < 100000; i++) candle(i, 1.0 + i % 2)];
-    const ma = MovingAverage(period: 2, color: Colors.white);
+  test('a long series does not drift: the running sum matches a fresh one', () {
+    // Awkward decimals for a hundred thousand candles; the last window is
+    // then averaged the slow way, from scratch.
+    final many = [
+      for (var i = 0; i < 100000; i++) candle(i, 100 + (i * 0.37) % 7.3),
+    ];
+    const ma = MovingAverage(period: 25, color: Colors.white);
+    final fresh =
+        many
+            .skip(many.length - 25)
+            .map((c) => c.close)
+            .reduce((a, b) => a + b) /
+        25;
 
-    expect(ma.compute(many).last, closeTo(1.5, 1e-9));
+    expect(ma.compute(many).last, closeTo(fresh, 1e-9));
+  });
+
+  test('the price range widens so a trailing average stays on the plot', () {
+    // Prices halve, then only the low candles are visible: the slow
+    // average still sits up where the old prices were.
+    final series = CandleSeries.of([
+      for (var i = 0; i < 40; i++) candle(i, i < 20 ? 200 : 100),
+    ]);
+    const ema = MovingAverage(
+      period: 25,
+      color: Colors.white,
+      exponential: true,
+    );
+    final overlays = OverlaySet(series, const [ema]);
+    const viewport = ChartViewport(candleWidth: 10, firstIndex: 25);
+    const theme = CandleChartTheme(
+      up: Colors.green,
+      down: Colors.red,
+      grid: Colors.grey,
+      axisText: Colors.grey,
+      crosshair: Colors.white,
+      crosshairLabelBackground: Colors.white,
+      crosshairLabelText: Colors.black,
+    );
+
+    final g = PlotGeometry(
+      size: const Size(200, 200),
+      theme: theme,
+      viewport: viewport,
+      candles: series.candles,
+      showVolume: false,
+      overlays: overlays,
+    );
+    final value = overlays.values.single[30]!;
+
+    expect(value, greaterThan(101));
+    expect(g.yOf(value), inInclusiveRange(0, g.priceHeight));
   });
 
   test('the legend names the kind and the period', () {

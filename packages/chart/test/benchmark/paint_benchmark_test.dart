@@ -35,6 +35,11 @@ void main() {
       theme: theme,
       interval: ChartInterval.m1,
       labels: labels,
+      // The averages ride along: a pan repaints them too.
+      overlays: OverlaySet(series, const [
+        MovingAverage(period: 7, color: Colors.orange),
+        MovingAverage(period: 25, color: Colors.blue, exponential: true),
+      ]),
       localTime: false,
     );
 

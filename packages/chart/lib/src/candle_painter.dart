@@ -17,12 +17,36 @@ final class PlotGeometry {
     required this.viewport,
     required this.candles,
     required this.showVolume,
+    OverlaySet? overlays,
   }) : plotWidth = math.max(0, size.width - theme.priceAxisWidth),
        plotHeight = math.max(0, size.height - theme.timeAxisHeight) {
     volumeHeight = showVolume ? plotHeight * theme.volumeFraction : 0;
     priceHeight = plotHeight - volumeHeight;
-    range = viewport.priceRange(candles, plotWidth);
+    range = _rangeWith(overlays, viewport.priceRange(candles, plotWidth));
     maxVolume = showVolume ? viewport.maxVolume(candles, plotWidth) : 0;
+  }
+
+  /// The candle range, widened when a visible average lies outside it —
+  /// after a steep move the slow average trails the candles by more than
+  /// the headroom, and a line that leaves the plot is a line that lies.
+  ({double min, double max})? _rangeWith(
+    OverlaySet? overlays,
+    ({double min, double max})? candleRange,
+  ) {
+    if (candleRange == null || overlays == null || overlays.isEmpty) {
+      return candleRange;
+    }
+    final (start, end) = viewport.visibleRange(candles.length, plotWidth);
+    final extent = overlays.extent(start, end);
+    if (extent == null) return candleRange;
+    final pad =
+        (math.max(candleRange.max, extent.max) -
+            math.min(candleRange.min, extent.min)) *
+        0.05;
+    return (
+      min: math.min(candleRange.min, extent.min - pad),
+      max: math.max(candleRange.max, extent.max + pad),
+    );
   }
 
   final Size size;
@@ -66,7 +90,7 @@ final class CandlePainter extends CustomPainter {
     required this.theme,
     required this.interval,
     required this.labels,
-    this.overlays = const [],
+    required this.overlays,
     this.showVolume = true,
     this.localTime = true,
   });
@@ -76,7 +100,7 @@ final class CandlePainter extends CustomPainter {
   final CandleChartTheme theme;
   final ChartInterval interval;
   final LabelCache labels;
-  final List<MovingAverage> overlays;
+  final OverlaySet overlays;
   final bool showVolume;
   final bool localTime;
 
@@ -89,6 +113,7 @@ final class CandlePainter extends CustomPainter {
       viewport: viewport,
       candles: candles,
       showVolume: showVolume,
+      overlays: overlays,
     );
     _paintPriceAxis(canvas, geometry);
     if (geometry.range == null) return;
@@ -108,8 +133,8 @@ final class CandlePainter extends CustomPainter {
     if (overlays.isEmpty) return;
     final (start, end) = viewport.visibleRange(g.candles.length, g.plotWidth);
     var legendX = 6.0;
-    for (final overlay in overlays) {
-      final values = overlay.compute(g.candles);
+    for (final (n, overlay) in overlays.overlays.indexed) {
+      final values = overlays.values[n];
       final paint = Paint()
         ..color = overlay.color
         ..strokeWidth = overlay.strokeWidth
@@ -230,15 +255,7 @@ final class CandlePainter extends CustomPainter {
       old.viewport != viewport ||
       old.theme != theme ||
       old.interval != interval ||
-      !_sameOverlays(old.overlays, overlays) ||
+      !identical(old.overlays, overlays) ||
       old.showVolume != showVolume ||
       old.localTime != localTime;
-
-  static bool _sameOverlays(List<MovingAverage> a, List<MovingAverage> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
 }

@@ -105,9 +105,23 @@ class CandleChartState extends State<CandleChart> {
     return theme;
   }
 
+  OverlaySet _overlaySet = OverlaySet.empty;
+
+  /// The averages for the current series, recomputed only when the
+  /// series instance or the overlay list changes — never on a pan.
+  OverlaySet _resolveOverlays() {
+    if (!_overlaySet.matches(widget.series, widget.overlays)) {
+      _overlaySet = widget.overlays.isEmpty
+          ? OverlaySet.empty
+          : OverlaySet(widget.series, widget.overlays);
+    }
+    return _overlaySet;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = _resolveTheme(context);
+    final overlays = _resolveOverlays();
     return LayoutBuilder(
       builder: (context, constraints) {
         final plotWidth = constraints.maxWidth - theme.priceAxisWidth;
@@ -151,7 +165,7 @@ class CandleChartState extends State<CandleChart> {
                       theme: theme,
                       interval: widget.interval,
                       labels: _labels!,
-                      overlays: widget.overlays,
+                      overlays: overlays,
                       showVolume: widget.showVolume,
                       localTime: widget.localTime,
                     ),
@@ -169,6 +183,7 @@ class CandleChartState extends State<CandleChart> {
                       labels: _labels!,
                       crosshairLabels: _crosshairLabels!,
                       position: _crosshair,
+                      overlays: overlays,
                       showVolume: widget.showVolume,
                       localTime: widget.localTime,
                     ),
