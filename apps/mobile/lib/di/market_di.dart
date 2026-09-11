@@ -104,6 +104,7 @@ Future<LiveMarket> liveMarket(Ref ref) async {
       candidateId: switch (choice) {
         SourceChoice.binance => 'binance_global',
         SourceChoice.binanceUs => 'binance_us',
+        SourceChoice.bybit => 'bybit',
         SourceChoice.coingecko || SourceChoice.auto => 'coingecko',
       },
       sourceId: choice.storageValue,
@@ -134,6 +135,30 @@ Future<LiveMarket> liveMarket(Ref ref) async {
         )
         .catchError((Object _) {}),
   );
+  if (resolution.candidateId == 'bybit') {
+    // Same client, another wire format; the Bybit socket needs the
+    // client's own ping and speaks in topics rather than streams.
+    final ws = WsClient(
+      transport: const IoWsTransport(),
+      url: BybitHosts.ws,
+      heartbeatStream: bybitTickerTopic('BTCUSDT'),
+      protocol: const BybitWsProtocol(),
+      logger: logger,
+    );
+    ref.onDispose(() => unawaited(ws.dispose()));
+    final source = BybitMarketDataSource(
+      client: BybitRestClient(
+        dio: createDio(
+          baseUrl: BybitHosts.rest,
+          pins: tradeLensPins,
+          logger: logger,
+        ),
+      ),
+      ws: ws,
+      logger: logger,
+    );
+    return (source: source, ws: ws, resolution: resolution);
+  }
   final hosts = switch (resolution.candidateId) {
     'binance_global' => BinanceHosts.global,
     'binance_vision' => BinanceHosts.vision,

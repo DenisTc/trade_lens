@@ -11,10 +11,12 @@ import 'package:data_market/src/http/spki_pinning.dart';
 ///
 /// Certificate expiry as observed: api.binance.com 2027-01-09,
 /// data-api.binance.vision 2027-03-03, api.binance.us 2027-03-18,
-/// api.anthropic.com 2026-10-22, api.coingecko.com 2026-11-29.
+/// api.anthropic.com 2026-10-22, api.coingecko.com 2026-11-29,
+/// api.bybit.com 2027-02-24 (captured 2026-09-11).
 const tradeLensPins = PinSet({
   'api.binance.com': {'/Y6BOeqMgXS6wjqk6emFs+Y+HWkIXO2R8Dox5VO1YT0='},
   'data-api.binance.vision': {'JNLtUB7spNN4Y10o3/p3kX/ksvhEV55uHfpAMpZmPeg='},
   'api.binance.us': {'is3VllVjJf3Ikd9CV8htIqRE5xtW29BM0kjMb0jAWa4='},
   'api.anthropic.com': {'yzfNb1bRcNF+H1Fts441Vj0MIuuxepdWKmqKJ/bVV6U='},
+  'api.bybit.com': {'swOm16kGGgCW5SqgfIfKhbgrV19O5YdI3S1+Jx+WaYc='},
 });

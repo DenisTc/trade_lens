@@ -45,6 +45,11 @@ final class AboutInfo {
         attribution: 'Data: Binance.US',
       ),
       SourceTerms(
+        name: 'Bybit',
+        termsUrl: Uri.parse('https://www.bybit.com/en/terms-service/'),
+        attribution: 'Data: Bybit',
+      ),
+      SourceTerms(
         name: 'CoinGecko',
         termsUrl: Uri.parse('https://www.coingecko.com/en/api_terms'),
         attribution: 'Powered by CoinGecko',

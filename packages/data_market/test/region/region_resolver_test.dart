@@ -259,7 +259,11 @@ void main() {
       'binance_global',
       'binance_vision',
       'binance_us',
+      'bybit',
     ]);
+    // Bybit says nothing until subscribed, so its probe carries a command.
+    expect(chain.last.wsProbeCommand, contains('tickers.BTCUSDT'));
+    expect(chain.first.wsProbeCommand, isNull);
     expect(
       chain.first.wsProbe.toString(),
       'wss://stream.binance.com:9443/stream?streams=btcusdt%40miniTicker',
