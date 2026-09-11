@@ -24,6 +24,9 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/features/insights': {..._featureDeps, 'ai_insights'},
   'packages/features/settings': _featureDeps,
   'tooling/arch_test': {},
+  // The pull-request reviewer runs the app's own Claude client outside
+  // the app, which is the point of keeping that package pure Dart.
+  'tooling/ai_review': {'ai_insights', 'core'},
   // apps/mobile is intentionally absent: it may depend on anything.
 };
 

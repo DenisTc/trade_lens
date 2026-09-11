@@ -71,10 +71,11 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
 | Claude API: SSE streaming, tool use, structured output, cost accounting | `packages/ai_insights`, `packages/features/insights/lib/src/ai` |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
-| Deferred deep links, attribution, push | `apps/mobile` (next) |
+| Deep links, custom scheme and https, with an allowlist | `apps/mobile/lib/deep_links.dart`, `apps/mobile/lib/di/deep_link_lifecycle.dart` |
 | Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
-| Unit / golden / Patrol tests, architecture tests | `tooling/arch_test`, `*/test` |
-| GitHub Actions, Fastlane → TestFlight | `.github/workflows`, `tooling/fastlane` (next) |
+| Unit / golden / Patrol tests, architecture tests | `*/test`, `apps/mobile/integration_test`, `tooling/arch_test` |
+| GitHub Actions, Fastlane to TestFlight and the Play internal track | `.github/workflows`, `apps/mobile/{ios,android}/fastlane` |
+| The Claude client reused outside the app, reviewing pull requests | `tooling/ai_review` |
 
 ## Layout
 
@@ -91,6 +92,7 @@ packages/
   ai_insights/          Claude API client, tools, structured output
   features/shared/      Riverpod providers of the domain interfaces, shared widgets
   features/             markets, portfolio, insights, settings (UI + providers)
+tooling/ai_review/      the pull-request reviewer that runs in CI
 tooling/arch_test/      dependency-direction and coding-rule tests
 docs/decisions/         ADRs, one file per decision
 docs/spec/              PRD + TID this project implements
@@ -199,6 +201,34 @@ working on a machine that has no keystore.
 The lanes are complete but have never uploaded: TestFlight needs a paid
 Apple Developer account and Play a one-off registration, both parked in
 [the backlog](docs/decisions/backlog.md).
+
+## AI review of pull requests
+
+`tooling/ai_review` reviews a pull request from CI: one `git diff`, one
+Claude call with a structured response, one comment. It reuses the app's
+own Claude client — `ai_insights` is pure Dart, so the package that
+streams a move summary on a phone also runs on a GitHub runner, with a
+different transport behind the same interface.
+
+What it does and does not do:
+
+- it reads the diff, not the repository, and skips what a generator or a
+  package manager wrote; the largest files are dropped first when the
+  diff does not fit, and the comment names them so a partial review is
+  not read as a clean one;
+- the diff is untrusted input. A pull request that tells the reviewer to
+  approve it is reported as a blocker rather than obeyed, and the tool
+  has no write access to anything except that one comment;
+- a rerun replaces its own comment instead of leaving one per push;
+- it is a second opinion, never a gate: the job posts and succeeds.
+  Formatting, imports and lints belong to the analyser, which runs in the
+  same CI, so the prompt tells the model to stay off them.
+
+Set `ANTHROPIC_API_KEY` in the repository secrets to turn it on — without
+it the job says so and exits, so a fork never fails on a key it cannot
+have. `TL_AI_REVIEW_MODEL` (a repository variable) takes the same JSON as
+the app's `ai_model` in Remote Config, which is where the model and its
+price live.
 
 ## Decisions
 
