@@ -68,6 +68,7 @@
   "bookBid": "Покупка",
   "bookAsk": "Продажа",
   "tradesLast": "последние {count}",
+  "movingAverages": "Скользящие средние, 7 и 25",
   "tabMarkets": "Рынки",
   "tabPortfolio": "Портфель",
   "tabSettings": "Настройки",

@@ -68,15 +68,21 @@ final class LabelCache {
   final int capacity;
   final Map<String, TextPainter> _cache = {};
 
-  TextPainter layout(String text) {
-    final cached = _cache[text];
+  /// [color] overrides the cache's text colour; an overlay legend is the
+  /// one label that wears its line's colour rather than the axis one.
+  TextPainter layout(String text, {Color? color}) {
+    final key = color == null ? text : '$text\u0000${color.toARGB32()}';
+    final cached = _cache[key];
     if (cached != null) return cached;
     if (_cache.length >= capacity) _cache.remove(_cache.keys.first)?.dispose();
     final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: TextSpan(
+        text: text,
+        style: color == null ? style : style.copyWith(color: color),
+      ),
       textDirection: TextDirection.ltr,
     )..layout();
-    return _cache[text] = painter;
+    return _cache[key] = painter;
   }
 
   void dispose() {

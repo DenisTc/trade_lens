@@ -17,6 +17,8 @@ Candle _c(int i, {Duration step = const Duration(minutes: 1)}) => Candle(
 );
 
 void main() {
+  _overlayTests();
+
   Widget app(FakeMarketDataSource source, Instrument instrument) => testApp(
     overrides: fakeOverrides(source: source),
     home: PairScreen(instrument: instrument, localTime: false),
@@ -161,5 +163,70 @@ void main() {
     ]);
     expect(auto.duration, const Duration(hours: 4));
     expect(auto.label, '4h · auto');
+  });
+}
+
+void _overlayTests() {
+  // One settings store across the two launches in the first test: that is
+  // what makes "it sticks" a claim about persistence.
+  final settings = FakeSettingsStore();
+  Widget app(FakeMarketDataSource source, Instrument instrument) => testApp(
+    overrides: fakeOverrides(source: source, settings: settings),
+    home: PairScreen(instrument: instrument, localTime: false),
+  );
+
+  testWidgets('the MA pill turns the averages on, and it sticks', (
+    tester,
+  ) async {
+    final source = FakeMarketDataSource(
+      history: [for (var i = 0; i < 50; i++) _c(i)],
+    );
+    final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+    await tester.pumpWidget(app(source, btc));
+    await tester.pump();
+    await tester.pump();
+
+    CandleChart chart() =>
+        tester.widget<CandleChart>(find.byKey(const Key('pair_chart')));
+    expect(chart().overlays, isEmpty);
+
+    await tester.tap(find.byKey(const Key('overlay_toggle')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(chart().overlays.map((o) => o.label), ['MA7', 'EMA25']);
+    expect(
+      tester.getSemantics(find.byKey(const Key('overlay_toggle'))),
+      matchesSemantics(
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasTapAction: true,
+        isFocusable: true,
+        hasFocusAction: true,
+        label: 'Moving averages, 7 and 25',
+      ),
+    );
+
+    // A second launch reads the same store: the choice survived.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(app(source, btc));
+    await tester.pump();
+    await tester.pump();
+    expect(chart().overlays, hasLength(2));
+  });
+
+  testWidgets('a prices-only source still offers the averages', (tester) async {
+    final source = FakeMarketDataSource(
+      capabilities: Capabilities.pricesOnly,
+      history: [for (var i = 0; i < 50; i++) _c(i)],
+    );
+    final btc = source.instrumentFor(defaultAssets.first, 'USD');
+    await tester.pumpWidget(app(source, btc));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('interval_selector')), findsNothing);
+    expect(find.byKey(const Key('overlay_toggle')), findsOneWidget);
   });
 }
