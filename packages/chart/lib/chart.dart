@@ -10,6 +10,7 @@ export 'src/axes.dart' show ChartFormat;
 export 'src/candle_chart.dart';
 export 'src/chart_theme.dart';
 export 'src/crosshair_painter.dart' show CrosshairInfo;
+export 'src/indicators.dart';
 export 'src/model.dart';
 export 'src/series.dart';
 export 'src/sparkline.dart';

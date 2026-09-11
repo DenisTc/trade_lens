@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
 import 'package:features_markets/src/chart_mapping.dart';
@@ -37,6 +39,7 @@ class PairScreen extends ConsumerWidget {
         ref.watch(marketDataSourceProvider).value?.capabilities ??
         Capabilities.pricesOnly;
     final interval = ref.watch(selectedIntervalProvider);
+    final overlaysOn = ref.watch(chartOverlaysSettingProvider).value ?? false;
     final candles = ref.watch(candlesProvider(instrument, interval));
     final series = ref.watch(chartSeriesProvider(instrument, interval));
     final l10n = context.l10n;
@@ -70,17 +73,33 @@ class PairScreen extends ConsumerWidget {
                 label: Text(l10n.aiSummaryTitle),
               ),
             ),
-          if (capabilities.intervals.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: IntervalPills(
-                key: const Key('interval_selector'),
-                intervals: capabilities.intervals,
-                selected: interval,
-                onSelected: (iv) =>
-                    ref.read(selectedIntervalProvider.notifier).value = iv,
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+            child: Row(
+              children: [
+                if (capabilities.intervals.length > 1)
+                  Expanded(
+                    child: IntervalPills(
+                      key: const Key('interval_selector'),
+                      intervals: capabilities.intervals,
+                      selected: interval,
+                      onSelected: (iv) =>
+                          ref.read(selectedIntervalProvider.notifier).value =
+                              iv,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                _OverlayToggle(
+                  key: const Key('overlay_toggle'),
+                  on: overlaysOn,
+                  onTap: () => unawaited(
+                    ref.read(chartOverlaysSettingProvider.notifier).toggle(),
+                  ),
+                ),
+              ],
             ),
+          ),
           SizedBox(
             height: 290,
             child: Padding(
@@ -95,6 +114,7 @@ class PairScreen extends ConsumerWidget {
                 data: (chartSeries) => CandleChart(
                   key: const Key('pair_chart'),
                   series: chartSeries,
+                  overlays: overlaysOn ? chartOverlays(context) : const [],
                   interval: chartIntervalFor(
                     interval,
                     candles.value ?? const [],
@@ -157,6 +177,65 @@ CandleChartTheme tradeLensChartTheme(BuildContext context) {
     crosshairLabelText: t.onAccent,
     fontFamily: TradeLensFonts.mono,
   );
+}
+
+/// The two averages the toggle turns on: the fast one in the accent, the
+/// slow one muted, so they read apart from the candles and each other.
+List<MovingAverage> chartOverlays(BuildContext context) {
+  final t = context.tokens;
+  return [
+    MovingAverage(period: 7, color: t.accent),
+    MovingAverage(period: 25, color: t.muted, exponential: true),
+  ];
+}
+
+/// One pill that switches the averages on and off, styled like the
+/// interval pills so the row reads as one set of controls.
+class _OverlayToggle extends StatelessWidget {
+  const _OverlayToggle({required this.on, required this.onTap, super.key});
+
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: context.l10n.movingAverages,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              constraints: const BoxConstraints(minHeight: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? t.accentBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: on ? t.accent : t.line),
+              ),
+              child: ExcludeSemantics(
+                child: Text(
+                  'MA',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: on ? t.accentInk : t.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Interval choice as pills; the selected one wears the accent ring.

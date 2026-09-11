@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:chart/src/axes.dart';
 import 'package:chart/src/chart_theme.dart';
+import 'package:chart/src/indicators.dart';
 import 'package:chart/src/model.dart';
 import 'package:chart/src/series.dart';
 import 'package:chart/src/viewport.dart';
@@ -65,6 +66,7 @@ final class CandlePainter extends CustomPainter {
     required this.theme,
     required this.interval,
     required this.labels,
+    this.overlays = const [],
     this.showVolume = true,
     this.localTime = true,
   });
@@ -74,6 +76,7 @@ final class CandlePainter extends CustomPainter {
   final CandleChartTheme theme;
   final ChartInterval interval;
   final LabelCache labels;
+  final List<MovingAverage> overlays;
   final bool showVolume;
   final bool localTime;
 
@@ -93,8 +96,52 @@ final class CandlePainter extends CustomPainter {
       ..save()
       ..clipRect(geometry.plotRect);
     _paintCandles(canvas, geometry);
+    _paintOverlays(canvas, geometry);
     canvas.restore();
     _paintTimeAxis(canvas, geometry);
+  }
+
+  /// The averages as polylines over the visible candles, and a legend in
+  /// the corner naming each by colour. A line breaks where a value is
+  /// missing instead of bridging the gap with a straight segment.
+  void _paintOverlays(Canvas canvas, PlotGeometry g) {
+    if (overlays.isEmpty) return;
+    final (start, end) = viewport.visibleRange(g.candles.length, g.plotWidth);
+    var legendX = 6.0;
+    for (final overlay in overlays) {
+      final values = overlay.compute(g.candles);
+      final paint = Paint()
+        ..color = overlay.color
+        ..strokeWidth = overlay.strokeWidth
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round;
+      final path = Path();
+      var drawing = false;
+      // One candle either side, so the line reaches the plot's edges.
+      for (
+        var i = math.max(0, start - 1);
+        i < math.min(end + 1, values.length);
+        i++
+      ) {
+        final v = values[i];
+        if (v == null) {
+          drawing = false;
+          continue;
+        }
+        final point = Offset(g.xOf(i), g.yOf(v));
+        if (drawing) {
+          path.lineTo(point.dx, point.dy);
+        } else {
+          path.moveTo(point.dx, point.dy);
+          drawing = true;
+        }
+      }
+      canvas.drawPath(path, paint);
+
+      final label = labels.layout(overlay.label, color: overlay.color)
+        ..paint(canvas, Offset(legendX, 4));
+      legendX += label.width + 10;
+    }
   }
 
   void _paintCandles(Canvas canvas, PlotGeometry g) {
@@ -183,6 +230,15 @@ final class CandlePainter extends CustomPainter {
       old.viewport != viewport ||
       old.theme != theme ||
       old.interval != interval ||
+      !_sameOverlays(old.overlays, overlays) ||
       old.showVolume != showVolume ||
       old.localTime != localTime;
+
+  static bool _sameOverlays(List<MovingAverage> a, List<MovingAverage> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
