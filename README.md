@@ -65,7 +65,7 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 |---|---|
 | Riverpod 3 with codegen, DI without GetIt | `packages/features/shared`, `apps/mobile/lib/di` |
 | WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` |
-| Custom candlestick chart on `CustomPainter` | `packages/chart` (two painters, goldens, benchmark) |
+| Custom candlestick chart on `CustomPainter`: crosshair, MA/EMA overlays, history paging | `packages/chart` (two painters, goldens, benchmark) |
 | Offline-first portfolio on Drift, Decimal money, tested v1→v2 migration | `packages/data_local`, `packages/domain/lib/src/portfolio` |
 | Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
