@@ -33,10 +33,14 @@ abstract interface class MarketDataSource {
 
   Future<Result<List<Quote>, MarketError>> quotes(List<Instrument> instruments);
 
+  /// The newest [limit] candles, or — with [before] — the [limit] candles
+  /// whose open time precedes it, for paging into history. Sources
+  /// without [Capabilities.history] ignore [before].
   Future<Result<List<Candle>, MarketError>> klines(
     Instrument instrument,
     Interval interval, {
     int limit = 500,
+    DateTime? before,
   });
 
   Stream<Quote> quoteStream(List<Instrument> instruments);

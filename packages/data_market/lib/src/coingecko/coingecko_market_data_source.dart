@@ -97,7 +97,10 @@ final class CoinGeckoMarketDataSource implements MarketDataSource {
     Instrument instrument,
     Interval interval, {
     int limit = 500,
+    DateTime? before,
   }) async {
+    // One OHLC window per call is all CoinGecko offers; `before` has
+    // nothing to page into and Capabilities.history says so.
     final days = daysFor(interval);
     try {
       final rows = await client.ohlc(
