@@ -37,6 +37,7 @@ final class BinanceRestClient {
     Interval interval, {
     int limit = 500,
     DateTime? startTime,
+    DateTime? endTime,
   }) async {
     final response = await _queue.run(
       2,
@@ -48,6 +49,8 @@ final class BinanceRestClient {
           'limit': limit,
           if (startTime != null)
             'startTime': startTime.toUtc().millisecondsSinceEpoch,
+          if (endTime != null)
+            'endTime': endTime.toUtc().millisecondsSinceEpoch,
         },
       ),
     );

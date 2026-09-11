@@ -85,6 +85,25 @@ void main() {
     expect(result.valueOrNull, hasLength(3));
   });
 
+  test('klines with `before` asks for the candles strictly older', () async {
+    final adapter = FakeHttpAdapter(
+      (_, _) => FakeResponse(200, _fixture('klines_1m.json')),
+    );
+    final source = build(adapter);
+    final oldest = DateTime.utc(2026, 9, 9, 12);
+
+    await source.klines(
+      source.instrumentFor(btc, 'USDT')!,
+      Interval.m1,
+      before: oldest,
+    );
+
+    final query = adapter.requests.single.uri.queryParameters;
+    // endTime is inclusive on Binance's side, hence the millisecond.
+    expect(query['endTime'], '${oldest.millisecondsSinceEpoch - 1}');
+    expect(query.containsKey('startTime'), isFalse);
+  });
+
   test('klines refuses Interval.auto', () {
     final source = build(
       FakeHttpAdapter((_, _) => const FakeResponse(200, '[]')),

@@ -121,6 +121,77 @@ void main() {
     },
   );
 
+  test(
+    'candles: loadOlder prepends a page, then stops at the beginning',
+    () async {
+      final source = FakeMarketDataSource(
+        history: [for (var m = 0; m < 6; m++) _c(m)],
+      );
+      final c = container(source);
+      final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+      c.listen(candlesProvider(btc, Interval.m1), (_, _) {});
+      await settle();
+      // The first answer is the whole fake history; pretend the screen
+      // only had the last three by paging from the fourth.
+      final notifier = c.read(candlesProvider(btc, Interval.m1).notifier)
+        ..state = AsyncData([_c(3), _c(4), _c(5)]);
+
+      await notifier.loadOlder();
+      expect(
+        c
+            .read(candlesProvider(btc, Interval.m1))
+            .value!
+            .map((x) => x.openTime.minute),
+        [0, 1, 2, 3, 4, 5],
+      );
+      expect(source.olderRequests.single, _c(3).openTime);
+
+      // Nothing older exists: the request is made once, then never again.
+      await notifier.loadOlder();
+      await notifier.loadOlder();
+      expect(source.olderRequests, hasLength(2));
+      expect(c.read(candlesProvider(btc, Interval.m1)).value, hasLength(6));
+    },
+  );
+
+  test('candles: loadOlder is a no-op for a source without history', () async {
+    final source = FakeMarketDataSource(
+      capabilities: Capabilities.pricesOnly,
+      history: [_c(0), _c(1)],
+    );
+    final c = container(source);
+    final btc = source.instrumentFor(defaultAssets.first, 'USD');
+    c.listen(candlesProvider(btc, Interval.auto), (_, _) {});
+    await settle();
+
+    await c.read(candlesProvider(btc, Interval.auto).notifier).loadOlder();
+
+    expect(source.olderRequests, isEmpty);
+  });
+
+  test('candles: a live candle during paging is not rolled back', () async {
+    final source = FakeMarketDataSource(
+      history: [for (var m = 0; m < 4; m++) _c(m)],
+    );
+    final c = container(source);
+    final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+    c.listen(candlesProvider(btc, Interval.m1), (_, _) {});
+    await settle();
+    final notifier = c.read(candlesProvider(btc, Interval.m1).notifier)
+      ..state = AsyncData([_c(2), _c(3)]);
+
+    // The live candle lands while the page is in flight; whichever of the
+    // two the stream delivers first, both must be in the result.
+    final paging = notifier.loadOlder();
+    source.emitCandle(btc, _c(3, close: '99'));
+    await paging;
+    await settle();
+
+    final candles = c.read(candlesProvider(btc, Interval.m1)).value!;
+    expect(candles.map((x) => x.openTime.minute), [0, 1, 2, 3]);
+    expect(candles.last.close, Decimal.parse('99'));
+  });
+
   test('candles: REST failure is an AsyncError', () async {
     final source = FakeMarketDataSource(
       klinesError: const MarketError.unavailable(

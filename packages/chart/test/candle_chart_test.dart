@@ -60,6 +60,59 @@ void main() {
     expect(state.currentViewport.firstIndex, panned);
   });
 
+  testWidgets('panning near the start asks for history once per series', (
+    tester,
+  ) async {
+    final series = CandleSeries.of(syntheticCandles(60));
+    var asked = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox.fromSize(
+            size: size,
+            child: CandleChart(
+              series: series,
+              interval: ChartInterval.m1,
+              onReachStart: () => asked++,
+            ),
+          ),
+        ),
+      ),
+    );
+    final paint = find.byKey(const Key('candle_chart_paint'));
+
+    await tester.drag(paint, const Offset(200, 0));
+    await tester.pump();
+    await tester.drag(paint, const Offset(200, 0));
+    await tester.pump();
+
+    // Two pans to the edge, one request: the second waits for new data.
+    expect(asked, 1);
+  });
+
+  testWidgets('history arriving in front keeps the view where it was', (
+    tester,
+  ) async {
+    final recent = syntheticCandles(300).sublist(200);
+    final series = CandleSeries.of(recent);
+    final state = await pumpChart(tester, series);
+    await tester.drag(
+      find.byKey(const Key('candle_chart_paint')),
+      const Offset(150, 0),
+    );
+    await tester.pump();
+    final firstOnScreen = series[state.currentViewport.firstIndex.round()];
+
+    // Two hundred older candles land in front.
+    final withHistory = CandleSeries.of(syntheticCandles(300));
+    await pumpChart(tester, withHistory);
+
+    expect(
+      withHistory[state.currentViewport.firstIndex.round()].openTime,
+      firstOnScreen.openTime,
+    );
+  });
+
   testWidgets('a new candle keeps the chart at the end while following', (
     tester,
   ) async {

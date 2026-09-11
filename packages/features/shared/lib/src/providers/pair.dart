@@ -86,6 +86,46 @@ class Candles extends _$Candles {
     if (current == null) return;
     state = AsyncData(current.upsert(candle));
   }
+
+  bool _loadingOlder = false;
+  bool _historyExhausted = false;
+
+  /// Prepends the page before the oldest candle on screen. One page at a
+  /// time; a page with nothing older in it ends the paging for this
+  /// build, and a failure is silent — what is on screen stays.
+  Future<void> loadOlder() async {
+    final current = state.value;
+    if (current == null ||
+        current.isEmpty ||
+        _loadingOlder ||
+        _historyExhausted) {
+      return;
+    }
+    final source = ref.read(marketDataSourceProvider).value;
+    if (source == null || !source.capabilities.history) return;
+    final generation = _generation;
+    final oldest = current.first.openTime;
+    _loadingOlder = true;
+    try {
+      final result = await source.klines(instrument, interval, before: oldest);
+      if (!ref.mounted || generation != _generation) return;
+      if (result case Ok(:final value)) {
+        final older = [
+          for (final c in value)
+            if (c.openTime.isBefore(oldest)) c,
+        ];
+        if (older.isEmpty) {
+          _historyExhausted = true;
+          return;
+        }
+        // Live candles may have landed meanwhile: they are in the state,
+        // not in `current`.
+        state = AsyncData([...older, ...?state.value]);
+      }
+    } finally {
+      _loadingOlder = false;
+    }
+  }
 }
 
 /// The interval the pair screen shows. Defaults to the first one the active

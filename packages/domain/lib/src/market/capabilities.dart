@@ -13,6 +13,9 @@ abstract class Capabilities with _$Capabilities {
     required bool klineStream,
     required bool volume,
     required Set<Interval> intervals,
+
+    /// Whether `klines` can page further back than its first answer.
+    required bool history,
   }) = _Capabilities;
 
   /// Everything an exchange WebSocket API offers.
@@ -22,6 +25,7 @@ abstract class Capabilities with _$Capabilities {
     klineStream: true,
     volume: true,
     intervals: {Interval.m1, Interval.m15, Interval.h1, Interval.d1},
+    history: true,
   );
 
   /// Prices-only mode of the REST fallback.
@@ -31,5 +35,6 @@ abstract class Capabilities with _$Capabilities {
     klineStream: false,
     volume: false,
     intervals: {Interval.auto},
+    history: false,
   );
 }

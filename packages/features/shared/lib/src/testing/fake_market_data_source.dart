@@ -31,6 +31,9 @@ final class FakeMarketDataSource implements MarketDataSource {
   final Map<String, StreamController<Trade>> _trades = {};
   final List<(Instrument, Interval)> klineRequests = [];
 
+  /// Every `before` a paging request carried, in order.
+  final List<DateTime> olderRequests = [];
+
   @override
   String get id => 'fake';
 
@@ -80,10 +83,19 @@ final class FakeMarketDataSource implements MarketDataSource {
     Instrument instrument,
     Interval interval, {
     int limit = 500,
+    DateTime? before,
   }) async {
     klineRequests.add((instrument, interval));
+    if (before != null) olderRequests.add(before);
     final error = klinesError;
-    return error == null ? Ok(history) : Err(error);
+    if (error != null) return Err(error);
+    final page = before == null
+        ? history
+        : [
+            for (final c in history)
+              if (c.openTime.isBefore(before)) c,
+          ];
+    return Ok(page.length <= limit ? page : page.sublist(page.length - limit));
   }
 
   void emitCandle(Instrument instrument, Candle candle) =>
