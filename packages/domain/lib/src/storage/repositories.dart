@@ -76,4 +76,5 @@ abstract final class SettingsKeys {
   static const aiConsent = 'ai.consent';
   static const uiLocale = 'ui.locale';
   static const uiTheme = 'ui.theme';
+  static const chartOverlays = 'chart.overlays';
 }

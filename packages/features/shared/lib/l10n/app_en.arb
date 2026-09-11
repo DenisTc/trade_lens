@@ -76,6 +76,7 @@
   "bookAsk": "Ask",
   "tradesLast": "last {count}",
   "@tradesLast": {"placeholders": {"count": {"type": "int"}}},
+  "movingAverages": "Moving averages, 7 and 25",
   "tabMarkets": "Markets",
   "tabPortfolio": "Portfolio",
   "tabSettings": "Settings",

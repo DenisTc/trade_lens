@@ -2,6 +2,7 @@ import 'package:chart/src/axes.dart';
 import 'package:chart/src/candle_painter.dart';
 import 'package:chart/src/chart_theme.dart';
 import 'package:chart/src/crosshair_painter.dart';
+import 'package:chart/src/indicators.dart';
 import 'package:chart/src/model.dart';
 import 'package:chart/src/series.dart';
 import 'package:chart/src/viewport.dart';
@@ -21,6 +22,7 @@ class CandleChart extends StatefulWidget {
     required this.series,
     required this.interval,
     super.key,
+    this.overlays = const [],
     this.showVolume = true,
     this.onCrosshair,
     this.theme,
@@ -31,6 +33,9 @@ class CandleChart extends StatefulWidget {
 
   final CandleSeries series;
   final ChartInterval interval;
+
+  /// Moving averages drawn over the candles, in this order.
+  final List<MovingAverage> overlays;
   final bool showVolume;
   final ValueChanged<CrosshairInfo?>? onCrosshair;
   final CandleChartTheme? theme;
@@ -100,9 +105,23 @@ class CandleChartState extends State<CandleChart> {
     return theme;
   }
 
+  OverlaySet _overlaySet = OverlaySet.empty;
+
+  /// The averages for the current series, recomputed only when the
+  /// series instance or the overlay list changes — never on a pan.
+  OverlaySet _resolveOverlays() {
+    if (!_overlaySet.matches(widget.series, widget.overlays)) {
+      _overlaySet = widget.overlays.isEmpty
+          ? OverlaySet.empty
+          : OverlaySet(widget.series, widget.overlays);
+    }
+    return _overlaySet;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = _resolveTheme(context);
+    final overlays = _resolveOverlays();
     return LayoutBuilder(
       builder: (context, constraints) {
         final plotWidth = constraints.maxWidth - theme.priceAxisWidth;
@@ -146,6 +165,7 @@ class CandleChartState extends State<CandleChart> {
                       theme: theme,
                       interval: widget.interval,
                       labels: _labels!,
+                      overlays: overlays,
                       showVolume: widget.showVolume,
                       localTime: widget.localTime,
                     ),
@@ -163,6 +183,7 @@ class CandleChartState extends State<CandleChart> {
                       labels: _labels!,
                       crosshairLabels: _crosshairLabels!,
                       position: _crosshair,
+                      overlays: overlays,
                       showVolume: widget.showVolume,
                       localTime: widget.localTime,
                     ),

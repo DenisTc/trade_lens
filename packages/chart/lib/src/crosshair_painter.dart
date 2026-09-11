@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:chart/src/axes.dart';
 import 'package:chart/src/candle_painter.dart';
 import 'package:chart/src/chart_theme.dart';
+import 'package:chart/src/indicators.dart';
 import 'package:chart/src/model.dart';
 import 'package:chart/src/series.dart';
 import 'package:chart/src/viewport.dart';
@@ -53,11 +54,15 @@ final class CrosshairPainter extends CustomPainter {
     required this.labels,
     required this.crosshairLabels,
     required this.position,
+    required this.overlays,
     this.showVolume = true,
     this.localTime = true,
   });
 
   final CandleSeries series;
+
+  /// Shared with the candle layer, so both map prices to the same pixels.
+  final OverlaySet overlays;
   final ChartViewport viewport;
   final CandleChartTheme theme;
   final ChartInterval interval;
@@ -80,6 +85,7 @@ final class CrosshairPainter extends CustomPainter {
       viewport: viewport,
       candles: series.candles,
       showVolume: showVolume,
+      overlays: overlays,
     );
     if (p.offset.dx >= g.plotWidth || p.offset.dy > g.plotHeight) return;
     final index = g.indexAt(p.offset.dx);
@@ -177,6 +183,7 @@ final class CrosshairPainter extends CustomPainter {
   bool shouldRepaint(CrosshairPainter old) =>
       old.position != position ||
       !identical(old.series, series) ||
+      !identical(old.overlays, overlays) ||
       old.viewport != viewport ||
       old.theme != theme;
 }

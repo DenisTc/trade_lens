@@ -41,6 +41,31 @@ void main() {
       );
     });
 
+    testWidgets('200 candles with MA7 and EMA25 · $suffix', (tester) async {
+      await tester.pumpWidget(
+        host(
+          CandleChart(
+            series: CandleSeries.of(syntheticCandles(200)),
+            interval: ChartInterval.m1,
+            localTime: false,
+            overlays: const [
+              MovingAverage(period: 7, color: Color(0xFFF2B94A)),
+              MovingAverage(
+                period: 25,
+                color: Color(0xFF4AA3F2),
+                exponential: true,
+              ),
+            ],
+          ),
+          brightness: brightness,
+        ),
+      );
+      await expectLater(
+        find.byType(CandleChart),
+        matchesGoldenFile('goldens/candle_chart_200_ma_$suffix.png'),
+      );
+    });
+
     testWidgets('50 candles with volume · $suffix', (tester) async {
       await tester.pumpWidget(
         host(
