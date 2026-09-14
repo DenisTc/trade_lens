@@ -90,6 +90,7 @@ packages/
   chart/                CustomPainter engine (future pub.dev package)
   sdui/                 JSON schema + node renderer
   ai_insights/          Claude API client, tools, structured output
+  backtest/             grid and DCA over historical candles: trades, metrics (v2)
   features/shared/      Riverpod providers of the domain interfaces, shared widgets
   features/             markets, portfolio, insights, settings (UI + providers)
 tooling/ai_review/      the pull-request reviewer that runs in CI
@@ -236,6 +237,7 @@ price live.
 - [ADR-0002 · Region fallback chain and pinning without a backend](docs/decisions/0002-region-fallback-and-pinning.md)
 - [ADR-0003 · Who owns the interface providers; Riverpod auto-retry off](docs/decisions/0003-provider-ownership.md)
 - [ADR-0004 · Storage on Drift, money as TEXT, migrations with a test](docs/decisions/0004-storage-and-migrations.md)
+- [ADR-0005 · The backtest fill model: a price path through a candle](docs/decisions/0005-backtest-fill-model.md)
 - [Backlog](docs/decisions/backlog.md): ideas go here, not into the code.
 
 ## Data sources and privacy

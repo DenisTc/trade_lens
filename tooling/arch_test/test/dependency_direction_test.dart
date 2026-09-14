@@ -16,6 +16,8 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/chart': {'core', 'features_shared'},
   'packages/sdui': {'core'},
   'packages/ai_insights': {'core', 'domain'},
+  // The backtest engine reads candles and produces figures; nothing else.
+  'packages/backtest': {'core', 'domain'},
   'packages/features/shared': {'core', 'domain'},
   'packages/features/markets': _featureDeps,
   'packages/features/portfolio': _featureDeps,
