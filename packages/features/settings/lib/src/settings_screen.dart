@@ -105,8 +105,11 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 /// Endonym of a supported language.
+/// Each language in its own name: the one the reader can find without
+/// knowing the current one.
 String languageName(Locale locale) => switch (locale.languageCode) {
   'ru' => 'Русский',
+  'vi' => 'Tiếng Việt',
   _ => 'English',
 };
 

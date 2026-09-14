@@ -98,4 +98,39 @@ void main() {
     expect(SourceChoice.fromStorage('binance_us'), SourceChoice.binanceUs);
     expect(SourceChoice.fromStorage('junk'), SourceChoice.auto);
   });
+
+  testWidgets('the language list names every bundle in its own language', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      testApp(
+        overrides: fakeOverrides(source: FakeMarketDataSource()),
+        home: const LanguageScreen(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    for (final name in ['English', 'Русский', 'Tiếng Việt']) {
+      expect(find.text(name), findsOneWidget, reason: name);
+    }
+    expect(find.byKey(const Key('language_vi')), findsOneWidget);
+  });
+
+  testWidgets('the Vietnamese bundle is what the app shows in vi', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      testApp(
+        overrides: fakeOverrides(source: FakeMarketDataSource()),
+        locale: const Locale('vi'),
+        home: const LanguageScreen(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Ngôn ngữ'), findsOneWidget);
+    expect(find.text('Theo hệ thống'), findsOneWidget);
+  });
 }
