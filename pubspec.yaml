@@ -12,6 +12,7 @@ workspace:
   - packages/chart
   - packages/sdui
   - packages/ai_insights
+  - packages/backtest
   - packages/features/shared
   - packages/features/markets
   - packages/features/portfolio
