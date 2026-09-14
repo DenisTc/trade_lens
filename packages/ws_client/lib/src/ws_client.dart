@@ -4,12 +4,14 @@ import 'dart:convert';
 import 'package:core/core.dart';
 import 'package:ws_client/src/backoff.dart';
 import 'package:ws_client/src/outbound_limiter.dart';
+import 'package:ws_client/src/protocol.dart';
 import 'package:ws_client/src/subscription_registry.dart';
 import 'package:ws_client/src/transport.dart';
 
 enum WsConnectionState { idle, connecting, connected, reconnecting, suspended }
 
-/// One frame of a combined stream: `{"stream": "...", "data": {...}}`.
+/// One data frame: the stream it belongs to and its payload, as the
+/// exchange's [WsProtocol] decoded them.
 final class WsMessage {
   const WsMessage({required this.stream, required this.data});
 
@@ -47,6 +49,7 @@ final class WsClient {
     this.batchWindow = const Duration(milliseconds: 250),
     this.unsubscribeDelay = const Duration(seconds: 2),
     this.heartbeatStream,
+    this.protocol = const BinanceWsProtocol(),
     Backoff? backoff,
     OutboundLimiter? limiter,
   }) : _backoff = backoff ?? Backoff(),
@@ -59,11 +62,18 @@ final class WsClient {
   final Duration unsubscribeDelay;
   final String? heartbeatStream;
 
+  /// The exchange's wire format; Binance unless told otherwise.
+  final WsProtocol protocol;
+
   final WsTransport _transport;
   final Backoff _backoff;
   final OutboundLimiter _limiter;
   final SubscriptionRegistry _registry = SubscriptionRegistry();
   final Set<String> _serverSubscriptions = {};
+
+  /// Streams to drop and take again on the next sync, for a consumer
+  /// whose state depends on the snapshot an exchange sends on subscribe.
+  final Set<String> _resubscribe = {};
   final Map<String, StreamController<WsMessage>> _channels = {};
   final Map<String, Timer> _pendingUnsubscribes = {};
   final StreamController<WsConnectionState> _states =
@@ -76,6 +86,7 @@ final class WsClient {
   StreamSubscription<String>? _frames;
   Timer? _batchTimer;
   Timer? _silenceTimer;
+  Timer? _pingTimer;
   Timer? _reconnectTimer;
   int _generation = 0;
   int _commandId = 0;
@@ -99,6 +110,15 @@ final class WsClient {
 
   /// Streams currently subscribed on the exchange (as far as we know).
   Set<String> get serverSubscriptions => Set.unmodifiable(_serverSubscriptions);
+
+  /// Asks the exchange for [stream] afresh: unsubscribe, then subscribe,
+  /// which makes an exchange resend whatever it sends on subscribe — a
+  /// book snapshot, for one. A no-op when nobody listens to [stream].
+  void resubscribe(String stream) {
+    if (_registry.count(stream) == 0) return;
+    _resubscribe.add(stream);
+    _markDirty();
+  }
 
   /// Frames of [stream]. Listening registers a consumer; cancelling
   /// unregisters it. Nothing is subscribed on the exchange until the first
@@ -233,18 +253,36 @@ final class WsClient {
     }
     if (connection == null || _state != WsConnectionState.connected) return;
 
-    final toUnsubscribe = _serverSubscriptions.difference(wanted).toList()
-      ..sort();
-    if (toUnsubscribe.isNotEmpty) {
-      if (!await _send(connection, 'UNSUBSCRIBE', toUnsubscribe)) return;
-      _serverSubscriptions.removeAll(toUnsubscribe);
+    final refresh = _serverSubscriptions.intersection(_resubscribe);
+    _resubscribe.clear();
+    final toUnsubscribe = _serverSubscriptions.difference(wanted).union(refresh)
+      ..toList();
+    for (final batch in _batches(toUnsubscribe.toList()..sort())) {
+      if (!await _send(connection, protocol.unsubscribe, batch)) return;
+      _serverSubscriptions.removeAll(batch);
     }
     // Re-read: listeners may have changed while the limiter held us.
     final toSubscribe = _wanted.difference(_serverSubscriptions).toList()
       ..sort();
-    if (toSubscribe.isNotEmpty) {
-      if (!await _send(connection, 'SUBSCRIBE', toSubscribe)) return;
-      _serverSubscriptions.addAll(toSubscribe);
+    for (final batch in _batches(toSubscribe)) {
+      if (!await _send(connection, protocol.subscribe, batch)) return;
+      _serverSubscriptions.addAll(batch);
+    }
+  }
+
+  /// One command per [WsProtocol.maxStreamsPerCommand] streams; an
+  /// exchange that caps the count rejects everything past it.
+  Iterable<List<String>> _batches(List<String> streams) sync* {
+    final size = protocol.maxStreamsPerCommand;
+    if (size == null || streams.length <= size) {
+      if (streams.isNotEmpty) yield streams;
+      return;
+    }
+    for (var i = 0; i < streams.length; i += size) {
+      yield streams.sublist(
+        i,
+        i + size > streams.length ? streams.length : i + size,
+      );
     }
   }
 
@@ -252,19 +290,25 @@ final class WsClient {
   /// socket gets its own sync.
   Future<bool> _send(
     WsConnection connection,
-    String method,
-    List<String> params,
+    String Function(List<String> streams, int id) encode,
+    List<String> streams,
   ) async {
     await _limiter.acquire();
     if (!identical(connection, _connection)) return false;
-    final command = jsonEncode({
-      'method': method,
-      'params': params,
-      'id': ++_commandId,
-    });
+    final command = encode(streams, ++_commandId);
     logger.debug('→ $command');
     connection.send(command);
     return true;
+  }
+
+  /// Exchanges that close a quiet socket want a ping from the client;
+  /// it bypasses the limiter, which exists for subscription commands.
+  void _armPingTimer() {
+    _pingTimer?.cancel();
+    final ping = protocol.ping;
+    final interval = protocol.pingInterval;
+    if (ping == null || interval == null) return;
+    _pingTimer = Timer.periodic(interval, (_) => _connection?.send(ping));
   }
 
   // -------------------------------------------------------------- connection
@@ -319,6 +363,7 @@ final class WsClient {
     );
     _setState(WsConnectionState.connected);
     _armSilenceTimer();
+    _armPingTimer();
     // Not synced right away: the batch window collects subscriptions that
     // arrived while connecting into one command.
     _markDirty();
@@ -333,13 +378,11 @@ final class WsClient {
       return;
     }
     if (json is! Map<String, Object?>) return;
-    final stream = json['stream'];
-    final data = json['data'];
-    if (stream is! String || data is! Map<String, Object?>) {
-      // Command acknowledgements ({"result": null, "id": n}) and errors do
-      // not prove the data path is alive: the silence timer stays as is.
-      return;
-    }
+    // Command acknowledgements, pongs and errors do not prove the data
+    // path is alive: the silence timer stays as is.
+    final decoded = protocol.decode(json);
+    if (decoded == null) return;
+    final (:stream, :data) = decoded;
     if (!_wanted.contains(stream)) return;
     _armSilenceTimer();
     _channels[stream]?.add(WsMessage(stream: stream, data: data));
@@ -390,6 +433,8 @@ final class WsClient {
   void _teardown() {
     _generation++;
     _silenceTimer?.cancel();
+    _pingTimer?.cancel();
+    _pingTimer = null;
     final connection = _connection;
     final frames = _frames;
     _connection = null;

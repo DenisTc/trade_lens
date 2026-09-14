@@ -13,13 +13,24 @@ enum WsProbeResult {
   blocked,
 }
 
-/// Opens [url], waits for the first data frame, closes. One shared
-/// [timeout] covers connect + first frame. An open socket that never speaks
-/// is what a half-open connection looks like, and the probe must not count
-/// it as alive.
-typedef WsHandshake = Future<WsProbeResult> Function(Uri url, Duration timeout);
+/// Opens [url], sends [send] when given, waits for the first frame after
+/// it, closes. One shared [timeout] covers connect + first frame. An open
+/// socket that never speaks is what a half-open connection looks like,
+/// and the probe must not count it as alive.
+///
+/// [send] exists for exchanges that stay silent until subscribed: Binance
+/// takes the subscription in the URL, Bybit wants a command.
+typedef WsHandshake = Future<WsProbeResult> Function(
+  Uri url,
+  Duration timeout, {
+  String? send,
+});
 
-Future<WsProbeResult> ioWsHandshake(Uri url, Duration timeout) async {
+Future<WsProbeResult> ioWsHandshake(
+  Uri url,
+  Duration timeout, {
+  String? send,
+}) async {
   final stopwatch = Stopwatch()..start();
   final connecting = WebSocket.connect(url.toString());
   WebSocket? socket;
@@ -34,6 +45,9 @@ Future<WsProbeResult> ioWsHandshake(Uri url, Duration timeout) async {
     );
     final remaining = timeout - stopwatch.elapsed;
     if (remaining <= Duration.zero) return WsProbeResult.silent;
+    if (send != null) socket.add(send);
+    // An acknowledgement is a frame too, and enough: it proves the socket
+    // carries data both ways, which is what a half-open one cannot.
     await socket.first.timeout(remaining);
     return WsProbeResult.alive;
   } on WebSocketException catch (e) {

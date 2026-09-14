@@ -47,7 +47,11 @@ final class HttpSourceProbe implements SourceProbe {
 
     final ws = candidate.wsProbe;
     if (ws == null) return ProbeOutcome.ok;
-    final result = await _wsHandshake(ws, wsTimeout);
+    final result = await _wsHandshake(
+      ws,
+      wsTimeout,
+      send: candidate.wsProbeCommand,
+    );
     logger.info('probe ${candidate.id}: ws ${result.name}');
     return switch (result) {
       WsProbeResult.alive => ProbeOutcome.ok,

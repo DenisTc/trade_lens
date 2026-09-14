@@ -11,6 +11,7 @@ enum SourceChoice {
   auto('auto'),
   binance('binance'),
   binanceUs('binance_us'),
+  bybit('bybit'),
   coingecko('coingecko');
 
   SourceChoice(this.storageValue);
