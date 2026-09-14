@@ -9,7 +9,7 @@ Binance, Bybit, CoinGecko and Anthropic directly.
 
 > Status: data sources with region fallback and pinning, the WebSocket
 > layer, markets list, pair screen with a CustomPainter chart, portfolio
-> on Drift with offline valuation, locales en/ru, the «Оптика» design
+> on Drift with offline valuation, locales en/ru/vi, the «Оптика» design
 > (dark and light themes, glass tab bar, app icon), store screenshots, the
 > server-driven Insights screen from Firebase Remote Config, the AI move
 > summary on the user's own Claude API key, deep links, Patrol e2e in CI

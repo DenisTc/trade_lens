@@ -108,7 +108,7 @@
   "invalidNumber": "Введите положительное число",
   "settingsSource": "Источник данных",
   "settingsSourceAuto": "Автоматически (по региону)",
-  "settingsSourceHint": "Автоматический режим проверяет Binance, его хост рыночных данных и Binance.US, затем переходит на CoinGecko.",
+  "settingsSourceHint": "Автоматический режим проверяет Binance, его хост рыночных данных, Binance.US и Bybit, затем переходит на CoinGecko.",
   "settingsCheckSource": "Проверить источник",
   "settingsCurrentSource": "Сейчас: {source}",
   "language": "Язык",
