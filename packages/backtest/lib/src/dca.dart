@@ -1,3 +1,4 @@
+import 'package:backtest/src/money.dart';
 import 'package:backtest/src/path.dart';
 import 'package:backtest/src/result.dart';
 import 'package:core/core.dart';
@@ -7,9 +8,9 @@ import 'package:meta/meta.dart';
 /// A DCA bot, long only: a base order at the start, then safety orders
 /// at every further fall of [stepPct] — each step [stepMultiplier] times
 /// the previous, each order [volumeMultiplier] times the previous — and
-/// one take-profit sell of the whole position [takeProfitPct] above the
-/// average entry, fees on both legs included. After the take-profit the
-/// next round starts where the price is.
+/// one take-profit sell of the whole position that nets [takeProfitPct]
+/// over what the round cost, fees on both legs included. After the
+/// take-profit the next round starts where the price is.
 @immutable
 final class DcaParams {
   const DcaParams({
@@ -23,16 +24,18 @@ final class DcaParams {
     this.volumeMultiplier,
   });
 
-  /// Quote spent on the first buy of a round.
+  /// Quote spent on the first buy of a round, fee included.
   final Decimal baseOrder;
 
-  /// Quote spent on the first safety order.
+  /// Quote spent on the first safety order, fee included.
   final Decimal safetyOrder;
   final int safetyOrders;
 
   /// Fall from the last fill, in percent, that triggers the next safety
   /// order.
   final Decimal stepPct;
+
+  /// Net gain of a round over its cost, in percent, that closes it.
   final Decimal takeProfitPct;
   final Decimal feeRate;
 
@@ -52,45 +55,50 @@ final class DcaParams {
   }
 }
 
+/// Runs the bot over [candles], oldest first.
+///
+/// A round that lost money leaves less quote than the next one wants:
+/// orders then shrink to what is there, and a round with nothing to
+/// spend does not open. Nothing is ever bought on credit.
 BacktestResult runDca(List<Candle> candles, DcaParams params) {
   final ledger = Ledger(feeRate: params.feeRate, quote: params.capital);
   if (candles.isEmpty) return ledger.result(Decimal.zero);
   final hundred = Decimal.fromInt(100);
+  final stepFraction = Money.price(params.stepPct / hundred);
+  final gain = Decimal.one + Money.price(params.takeProfitPct / hundred);
+  final afterFee = Decimal.one - params.feeRate;
 
   // The round in progress.
   var cost = Decimal.zero; // quote spent, fees included
   var held = Decimal.zero; // base bought
   var safetyLeft = 0;
   var nextOrder = Decimal.zero;
-  var nextStepPct = Decimal.zero;
+  var nextStep = Decimal.zero;
   Decimal? nextBuy; // safety order price
   Decimal? takeProfit;
 
-  Decimal scaled(Decimal value, Decimal fraction) =>
-      value * (Decimal.one - fraction);
-
-  void fill(DateTime at, Decimal price, Decimal quote) {
-    // Fees come out of the quote spent, so `quote` is the whole outlay.
-    final qty = (quote / (price * (Decimal.one + params.feeRate))).toDecimal(
-      scaleOnInfinitePrecision: 8,
-    );
+  /// Spends [quote] at [price]; less when less is there. False when
+  /// nothing could be bought.
+  bool fill(DateTime at, Decimal price, Decimal quote) {
+    final outlay = quote < ledger.quoteHeld ? quote : ledger.quoteHeld;
+    if (outlay <= Decimal.zero) return false;
+    // Fees come out of the outlay, so it is the whole of what is spent.
+    final qty = Money.qty(outlay / (price * (Decimal.one + params.feeRate)));
+    if (qty <= Decimal.zero) return false;
     ledger.buy(at, price, qty);
-    cost += price * qty * (Decimal.one + params.feeRate);
+    cost += Money.roundPrice(price * qty * (Decimal.one + params.feeRate));
     held += qty;
-    final average = (cost / held).toDecimal(scaleOnInfinitePrecision: 8);
-    final lift = (params.takeProfitPct / hundred).toDecimal(
-      scaleOnInfinitePrecision: 8,
-    );
-    takeProfit = average * (Decimal.one + lift);
+    // The sell that returns cost × gain after its own fee.
+    takeProfit = Money.price(cost * gain / (held * afterFee));
     if (safetyLeft > 0) {
-      nextBuy = scaled(
-        price,
-        (nextStepPct / hundred).toDecimal(scaleOnInfinitePrecision: 8),
+      nextBuy = Money.roundPrice(price * (Decimal.one - nextStep));
+      nextStep = Money.roundPrice(
+        nextStep * (params.stepMultiplier ?? Decimal.one),
       );
-      nextStepPct *= params.stepMultiplier ?? Decimal.one;
     } else {
       nextBuy = null;
     }
+    return true;
   }
 
   void open(DateTime at, Decimal price) {
@@ -98,38 +106,48 @@ BacktestResult runDca(List<Candle> candles, DcaParams params) {
     held = Decimal.zero;
     safetyLeft = params.safetyOrders;
     nextOrder = params.safetyOrder;
-    nextStepPct = params.stepPct;
+    nextStep = stepFraction;
+    takeProfit = null;
+    nextBuy = null;
     fill(at, price, params.baseOrder);
   }
 
-  open(candles.first.openTime, candles.first.open);
+  void walk(DateTime time, Decimal from, Decimal to) {
+    if (to <= from) {
+      // Falling: safety orders, one after another, as long as the leg
+      // reaches them and the quote pays for them.
+      while (true) {
+        final price = nextBuy;
+        if (price == null || price < to || price > from) break;
+        final order = nextOrder;
+        safetyLeft--;
+        nextOrder = order * (params.volumeMultiplier ?? Decimal.one);
+        if (!fill(time, price, order)) {
+          nextBuy = null;
+          break;
+        }
+      }
+    }
+    if (to >= from) {
+      // Rising: a take-profit closes the round and the next one opens
+      // right there, whose own take-profit may still be on this leg.
+      while (true) {
+        final tp = takeProfit;
+        if (tp == null || tp < from || tp > to) break;
+        ledger.sell(time, tp, held, cost: cost);
+        open(time, tp);
+        if (takeProfit == null) break; // nothing left to open with
+      }
+    }
+  }
 
+  open(candles.first.openTime, candles.first.open);
   for (final candle in candles) {
     final path = candlePath(candle);
     var from = path.first;
+    walk(candle.openTime, from, from);
     for (final to in path.skip(1)) {
-      if (to < from) {
-        // Falling: safety orders, one after another, as long as the leg
-        // reaches them.
-        while (true) {
-          final price = nextBuy;
-          if (price == null || price < to || price > from) break;
-          final order = nextOrder;
-          safetyLeft--;
-          nextOrder = order * (params.volumeMultiplier ?? Decimal.one);
-          fill(candle.openTime, price, order);
-          from = price;
-        }
-      } else if (to > from) {
-        final tp = takeProfit;
-        if (tp != null && tp >= from && tp <= to) {
-          ledger.sell(candle.openTime, tp, held, cost: cost);
-          // The next round starts here, at the take-profit price: the
-          // rest of this leg is rising, so it cannot buy more on it.
-          open(candle.openTime, tp);
-          from = tp;
-        }
-      }
+      walk(candle.openTime, from, to);
       from = to;
     }
     ledger.mark(candle.openTime, candle.close);

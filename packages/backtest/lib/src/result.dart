@@ -166,11 +166,14 @@ final class Ledger {
   BacktestResult result(Decimal lastClose) => BacktestResult(
     capital: capital,
     trades: List.unmodifiable(trades),
-    equity: List.unmodifiable(equity),
+    // The curve starts at the capital, the point the drawdown is read
+    // from too.
+    equity: List.unmodifiable([
+      if (equity.isNotEmpty) EquityPoint(at: equity.first.at, equity: capital),
+      ...equity,
+    ]),
     finalEquity: quoteHeld + baseHeld * lastClose,
     fees: fees,
-    // The curve starts at the capital: a first candle that falls is a
-    // drawdown from what the strategy was given.
     maxDrawdown: maxDrawdownOf([capital, ...equity.map((p) => p.equity)]),
     baseHeld: baseHeld,
     quoteHeld: quoteHeld,

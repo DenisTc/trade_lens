@@ -9,5 +9,6 @@ library;
 
 export 'src/dca.dart';
 export 'src/grid.dart';
+export 'src/money.dart';
 export 'src/path.dart';
 export 'src/result.dart';
