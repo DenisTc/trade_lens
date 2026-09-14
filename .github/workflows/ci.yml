@@ -184,6 +184,14 @@ jobs:
           echo "$PUB_CACHE/bin" >> "$GITHUB_PATH"
           "$PUB_CACHE/bin/patrol" --version
 
+      # The build takes ten minutes on a cold runner, and a simulator
+      # booted before it has been seen to vanish by the time xcodebuild
+      # asks for it. So: build first, then boot, then run — the run's own
+      # build is incremental and takes seconds.
+      - name: Build the test bundle
+        working-directory: apps/mobile
+        run: patrol build ios --target integration_test/app_test.dart --debug --simulator
+
       - name: Boot iOS simulator
         id: sim
         run: |
@@ -192,6 +200,7 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl list devices booted
 
       - name: Run e2e scenarios
         working-directory: apps/mobile
