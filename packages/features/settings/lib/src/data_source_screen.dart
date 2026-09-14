@@ -23,6 +23,7 @@ class DataSourceScreen extends ConsumerWidget {
       SourceChoice.auto: l10n.settingsSourceAuto,
       SourceChoice.binance: 'Binance',
       SourceChoice.binanceUs: 'Binance.US',
+      SourceChoice.bybit: 'Bybit',
       SourceChoice.coingecko: 'CoinGecko',
     };
     return Scaffold(

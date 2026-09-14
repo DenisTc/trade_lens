@@ -17,7 +17,7 @@ void main() {
   HttpSourceProbe build(FakeHttpAdapter adapter, {bool wsAlive = true}) =>
       HttpSourceProbe(
         adapter: adapter,
-        wsHandshake: (url, timeout) async {
+        wsHandshake: (url, timeout, {send}) async {
           expect(url, candidate.wsProbe);
           expect(timeout, const Duration(seconds: 3));
           return wsAlive ? WsProbeResult.alive : WsProbeResult.silent;
@@ -45,7 +45,7 @@ void main() {
     var wsCalled = false;
     final probe = HttpSourceProbe(
       adapter: FakeHttpAdapter((_, _) => const FakeResponse(451, '{}')),
-      wsHandshake: (_, _) async {
+      wsHandshake: (_, _, {send}) async {
         wsCalled = true;
         return WsProbeResult.alive;
       },
@@ -57,7 +57,7 @@ void main() {
   test('200 + WebSocket upgrade refused with 451 → regionBlocked', () async {
     final probe = HttpSourceProbe(
       adapter: FakeHttpAdapter((_, _) => const FakeResponse(200, '{}')),
-      wsHandshake: (_, _) async => WsProbeResult.blocked,
+      wsHandshake: (_, _, {send}) async => WsProbeResult.blocked,
     );
     expect(await probe.probe(candidate), ProbeOutcome.regionBlocked);
   });

@@ -19,6 +19,7 @@ final class SourceCandidate {
     required this.sourceId,
     required this.restPing,
     this.wsProbe,
+    this.wsProbeCommand,
   });
 
   /// Unique within the chain: `binance_global`, `binance_vision`, ...
@@ -33,6 +34,10 @@ final class SourceCandidate {
   /// Combined-stream URL with one miniTicker subscription. Null for
   /// REST-only sources.
   final Uri? wsProbe;
+
+  /// Sent once the socket is open, for exchanges that carry the
+  /// subscription in a command rather than the URL.
+  final String? wsProbeCommand;
 }
 
 abstract interface class SourceProbe {

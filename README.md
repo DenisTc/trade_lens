@@ -5,7 +5,7 @@
 Live crypto quotes, a candlestick chart drawn with `CustomPainter`, a manual
 portfolio valued in real time, a server-driven "Insights" screen and an AI
 move summary streamed from the Claude API. No backend: the phone talks to
-Binance, CoinGecko and Anthropic directly.
+Binance, Bybit, CoinGecko and Anthropic directly.
 
 > Status: data sources with region fallback and pinning, the WebSocket
 > layer, markets list, pair screen with a CustomPainter chart, portfolio
@@ -65,9 +65,9 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 |---|---|
 | Riverpod 3 with codegen, DI without GetIt | `packages/features/shared`, `apps/mobile/lib/di` |
 | WebSocket layer: registry, batching, reconnect, half-open detection | `packages/ws_client` |
-| Custom candlestick chart on `CustomPainter` | `packages/chart` (two painters, goldens, benchmark) |
+| Custom candlestick chart on `CustomPainter`: crosshair, MA/EMA overlays, history paging | `packages/chart` (two painters, goldens, benchmark) |
 | Offline-first portfolio on Drift, Decimal money, tested v1→v2 migration | `packages/data_local`, `packages/domain/lib/src/portfolio` |
-| Region fallback Binance → Binance US → CoinGecko | `packages/data_market/lib/src/region` |
+| Region fallback Binance → Binance US → Bybit → CoinGecko; two exchanges behind one interface | `packages/data_market/lib/src/region`, `packages/data_market/lib/src/{binance,bybit}` |
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
 | Claude API: SSE streaming, tool use, structured output, cost accounting | `packages/ai_insights`, `packages/features/insights/lib/src/ai` |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
@@ -240,7 +240,7 @@ price live.
 
 ## Data sources and privacy
 
-Market data comes from public Binance and CoinGecko endpoints; the exact
+Market data comes from public Binance, Bybit and CoinGecko endpoints; the exact
 terms, attribution and the data flows (local cache, what is sent to the
 Claude API and only on explicit user action) are described in the
 [spec](docs/spec/tradelens-prd-tid-v1.2.md#условия-источников-что-можно-что-обязательно-что-проверить)
