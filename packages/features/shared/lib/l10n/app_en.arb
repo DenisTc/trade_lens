@@ -122,7 +122,7 @@
   "invalidNumber": "Enter a positive number",
   "settingsSource": "Data source",
   "settingsSourceAuto": "Automatic (by region)",
-  "settingsSourceHint": "Automatic probes Binance, its market-data host and Binance.US, then falls back to CoinGecko.",
+  "settingsSourceHint": "Automatic probes Binance, its market-data host, Binance.US and Bybit, then falls back to CoinGecko.",
   "settingsCheckSource": "Check source now",
   "settingsCurrentSource": "Current: {source}",
   "@settingsCurrentSource": {"placeholders": {"source": {"type": "String"}}},
