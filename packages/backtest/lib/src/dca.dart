@@ -86,10 +86,10 @@ BacktestResult runDca(List<Candle> candles, DcaParams params) {
     final qty = Money.qty(outlay / (price * (Decimal.one + params.feeRate)));
     if (qty <= Decimal.zero) return false;
     ledger.buy(at, price, qty);
-    cost += Money.roundPrice(price * qty * (Decimal.one + params.feeRate));
+    cost += price * qty * (Decimal.one + params.feeRate); // exact, as paid
     held += qty;
     // The sell that returns cost × gain after its own fee.
-    takeProfit = Money.price(cost * gain / (held * afterFee));
+    takeProfit = Money.priceUp(cost * gain / (held * afterFee));
     if (safetyLeft > 0) {
       nextBuy = Money.roundPrice(price * (Decimal.one - nextStep));
       nextStep = Money.roundPrice(
@@ -136,7 +136,10 @@ BacktestResult runDca(List<Candle> candles, DcaParams params) {
         if (tp == null || tp < from || tp > to) break;
         ledger.sell(time, tp, held, cost: cost);
         open(time, tp);
-        if (takeProfit == null) break; // nothing left to open with
+        // Nothing left to open with, or a take-profit that rounded back
+        // onto the price it opened at: the leg is done either way.
+        final next = takeProfit;
+        if (next == null || next <= tp) break;
       }
     }
   }

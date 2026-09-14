@@ -72,6 +72,13 @@ BacktestResult runGrid(List<Candle> candles, GridParams params) {
   final grossPerUnit = costPerUnit * (Decimal.one + params.feeRate);
   if (grossPerUnit == Decimal.zero) return ledger.result(candles.last.close);
   final qty = Money.qty(params.investment / grossPerUnit);
+  // Too little for one unit per level at this precision: no grid.
+  if (qty <= Decimal.zero) {
+    for (final candle in candles) {
+      ledger.mark(candle.openTime, candle.close);
+    }
+    return ledger.result(candles.last.close);
+  }
 
   // What rests on each level. A level can hold several lots: a sell
   // placed by a buy below lands on a level that may already hold one,
