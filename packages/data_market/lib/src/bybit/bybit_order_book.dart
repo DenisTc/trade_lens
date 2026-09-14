@@ -5,9 +5,10 @@ import 'package:domain/domain.dart';
 
 /// The bookkeeping Binance's partial stream spared us: Bybit's book
 /// arrives as one snapshot and then deltas, where a level with size zero
-/// is gone and a level not mentioned is unchanged. Sequence numbers must
-/// climb; one that does not means a frame was lost, and the book is
-/// untrustworthy until the next snapshot.
+/// is gone and a level not mentioned is unchanged. The update id `u`
+/// must climb; one that does not means a frame was lost, and the book is
+/// untrustworthy until the next snapshot. (`seq` is Bybit's cross-depth
+/// ordering, not a continuity check.)
 final class BybitOrderBook {
   BybitOrderBook({this.depth = 10});
 
@@ -18,7 +19,7 @@ final class BybitOrderBook {
     (a, b) => b.compareTo(a), // best bid first
   );
   final SplayTreeMap<Decimal, Decimal> _asks = SplayTreeMap();
-  int? _sequence;
+  int? _updateId;
   bool _valid = false;
 
   /// Whether a snapshot has been seen and every delta since was in order.
@@ -27,33 +28,37 @@ final class BybitOrderBook {
   void applySnapshot(
     List<OrderBookLevel> bids,
     List<OrderBookLevel> asks, {
-    required int sequence,
+    required int updateId,
   }) {
     _bids.clear();
     _asks.clear();
     _put(_bids, bids);
     _put(_asks, asks);
-    _sequence = sequence;
+    _updateId = updateId;
     _valid = true;
   }
 
   /// Applies a delta; returns false, and marks the book invalid, when
-  /// [sequence] does not follow the last one.
+  /// [updateId] does not follow the last one.
   bool applyDelta(
     List<OrderBookLevel> bids,
     List<OrderBookLevel> asks, {
-    required int sequence,
+    required int updateId,
   }) {
-    final last = _sequence;
-    if (!_valid || last == null || sequence <= last) {
+    final last = _updateId;
+    if (!_valid || last == null || updateId <= last) {
       _valid = false;
       return false;
     }
     _put(_bids, bids);
     _put(_asks, asks);
-    _sequence = sequence;
+    _updateId = updateId;
     return true;
   }
+
+  /// Marks the book untrustworthy — a frame could not be read, so a level
+  /// it may have removed could still be here — until the next snapshot.
+  void invalidate() => _valid = false;
 
   /// The top [depth] of each side, or null while the book is not valid.
   OrderBookSnapshot? snapshot(Instrument instrument, {required DateTime at}) {

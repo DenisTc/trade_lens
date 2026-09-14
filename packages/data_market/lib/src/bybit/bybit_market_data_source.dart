@@ -25,11 +25,20 @@ final class BybitMarketDataSource implements MarketDataSource {
     this._ws,
     this._logger = const NoopLogger(),
     Clock? clock,
-    this.backfillLimit = 500,
+    this.backfillPageSize = 500,
+    this.backfillMaxPages = 10,
   }) : _clock = clock ?? const Clock();
 
-  /// Candles fetched after a reconnect, from the last one seen.
-  final int backfillLimit;
+  /// Page size of the backfill after a reconnect, and how many pages it
+  /// may walk back before giving up on a very long outage.
+  final int backfillPageSize;
+  final int backfillMaxPages;
+
+  /// One book per symbol, shared by every listener and by the exchange
+  /// subscription's lifetime: the snapshot comes once, on subscribe, and
+  /// a listener that arrives while the subscription is still held gets
+  /// the current book rather than a blank one.
+  final Map<String, BybitOrderBook> _books = {};
 
   final BybitRestClient _client;
   final WsClient? _ws;
@@ -147,10 +156,12 @@ final class BybitMarketDataSource implements MarketDataSource {
     ]);
   }
 
-  /// Live candles; after a reconnect one page of history from the last
-  /// candle seen is merged in, live updates winning on the same open
-  /// time. One page: a socket outage longer than [backfillLimit] candles
-  /// of the interval is what the history paging on the chart is for.
+  /// Live candles; after a reconnect the history since the last candle
+  /// seen is paged in from the newest page backwards, while live candles
+  /// are buffered. Then everything is emitted in order by open time, a
+  /// live candle winning over history for the same open time, so a slow
+  /// REST answer never rolls a newer close back. A reconnect during a
+  /// backfill starts a new one and the older result is dropped.
   @override
   Stream<Candle> klineStream(Instrument instrument, Interval interval) {
     final code = bybitIntervalCode(interval);
@@ -159,22 +170,61 @@ final class BybitMarketDataSource implements MarketDataSource {
     StreamSubscription<WsMessage>? frames;
     StreamSubscription<WsConnectionState>? states;
     DateTime? lastOpenTime;
+    List<Candle>? buffered; // non-null while a backfill is running
     var reconnecting = false;
+    var generation = 0;
+
+    void emit(Candle candle) {
+      lastOpenTime = candle.openTime;
+      final pending = buffered;
+      if (pending != null) {
+        pending.add(candle);
+      } else {
+        controller.add(candle);
+      }
+    }
 
     Future<void> backfill() async {
       final since = lastOpenTime;
       if (since == null) return;
+      final myGeneration = ++generation;
+      buffered ??= [];
       _logger.info('backfilling ${instrument.symbol} $code from $since');
-      final result = await klines(instrument, interval, limit: backfillLimit);
-      if (controller.isClosed) return;
-      switch (result) {
-        case Ok(:final value):
-          for (final c in value) {
-            if (!c.openTime.isBefore(since)) controller.add(c);
-          }
-        case Err(:final error):
-          controller.addError(error);
+      final history = <DateTime, Candle>{};
+      DateTime? before;
+      for (var page = 0; page < backfillMaxPages; page++) {
+        final result = await klines(
+          instrument,
+          interval,
+          limit: backfillPageSize,
+          before: before,
+        );
+        if (myGeneration != generation || controller.isClosed) return;
+        final candles = switch (result) {
+          Ok(:final value) => value,
+          Err(:final error) => (() {
+            controller.addError(error);
+            return null;
+          })(),
+        };
+        if (candles == null || candles.isEmpty) break;
+        for (final c in candles) {
+          if (!c.openTime.isBefore(since)) history[c.openTime] = c;
+        }
+        if (!candles.first.openTime.isAfter(since) ||
+            candles.length < backfillPageSize) {
+          break;
+        }
+        before = candles.first.openTime;
       }
+      // Live updates win over history for the same openTime.
+      for (final c in buffered ?? const <Candle>[]) {
+        history[c.openTime] = c;
+      }
+      buffered = null;
+      history.values.toList()
+        ..sort((a, b) => a.openTime.compareTo(b.openTime))
+        ..forEach(controller.add);
     }
 
     controller = StreamController<Candle>(
@@ -186,9 +236,7 @@ final class BybitMarketDataSource implements MarketDataSource {
           if (list is! List<Object?>) return;
           try {
             for (final element in list) {
-              final candle = parseBybitKlineEvent(element);
-              lastOpenTime = candle.openTime;
-              controller.add(candle);
+              emit(parseBybitKlineEvent(element));
             }
           } on FormatException catch (e) {
             controller.addError(
@@ -205,6 +253,7 @@ final class BybitMarketDataSource implements MarketDataSource {
         });
       },
       onCancel: () {
+        generation++;
         unawaited(frames?.cancel());
         unawaited(states?.cancel());
       },
@@ -212,39 +261,80 @@ final class BybitMarketDataSource implements MarketDataSource {
     return controller.stream;
   }
 
-  /// A snapshot per frame, kept by [BybitOrderBook] from the deltas. A
-  /// frame out of sequence yields nothing until the next snapshot, and
-  /// a reconnect starts a fresh book, since Bybit resends the snapshot.
+  /// A snapshot per frame, kept by the symbol's shared [BybitOrderBook].
+  /// A frame out of sequence, or one that cannot be read, makes the book
+  /// untrustworthy: the stream goes quiet and the topic is subscribed
+  /// afresh so the exchange sends a new snapshot. A reconnect resends
+  /// one on its own, and the book is invalidated in the meantime.
   @override
   Stream<OrderBookSnapshot> orderBookStream(Instrument instrument) {
-    final book = BybitOrderBook();
-    return _socket
-        .subscribe(bybitBookTopic(instrument.symbol))
-        .map((message) {
-          try {
-            final data = message.data['data'];
-            if (data is! Map<String, Object?>) {
-              throw FormatException('book data is not an object: $data');
-            }
-            final sequence = data['seq'];
-            if (sequence is! int) {
-              throw FormatException('book seq is not an int: $sequence');
-            }
-            final bids = parseBybitLevels(data['b'], 'b');
-            final asks = parseBybitLevels(data['a'], 'a');
-            if (message.data['type'] == 'snapshot') {
-              book.applySnapshot(bids, asks, sequence: sequence);
-            } else if (!book.applyDelta(bids, asks, sequence: sequence)) {
-              _logger.warn('book ${instrument.symbol}: frame out of sequence');
-              return null;
-            }
-            return book.snapshot(instrument, at: _frameTime(message.data));
-          } on FormatException catch (e) {
-            throw MarketError.parse(sourceId: id, message: e.message);
-          }
-        })
-        .where((snapshot) => snapshot != null)
-        .cast<OrderBookSnapshot>();
+    final ws = _socket;
+    final topic = bybitBookTopic(instrument.symbol);
+    final book = _books.putIfAbsent(instrument.symbol, BybitOrderBook.new);
+    late StreamController<OrderBookSnapshot> controller;
+    StreamSubscription<WsMessage>? frames;
+    StreamSubscription<WsConnectionState>? states;
+
+    void refresh(String why) {
+      _logger.warn('book ${instrument.symbol}: $why, asking for a snapshot');
+      book.invalidate();
+      ws.resubscribe(topic);
+    }
+
+    void onFrame(WsMessage message) {
+      try {
+        final data = message.data['data'];
+        if (data is! Map<String, Object?>) {
+          throw FormatException('book data is not an object: $data');
+        }
+        final updateId = data['u'];
+        if (updateId is! int) {
+          throw FormatException('book u is not an int: $updateId');
+        }
+        final bids = parseBybitLevels(data['b'], 'b');
+        final asks = parseBybitLevels(data['a'], 'a');
+        // Bybit restarts a book with `u` = 1 and a full set of levels.
+        if (message.data['type'] == 'snapshot' || updateId == 1) {
+          book.applySnapshot(bids, asks, updateId: updateId);
+        } else if (!book.applyDelta(bids, asks, updateId: updateId)) {
+          refresh('frame out of sequence');
+          return;
+        }
+        final snapshot = book.snapshot(
+          instrument,
+          at: _frameTime(message.data),
+        );
+        if (snapshot != null) controller.add(snapshot);
+      } on FormatException catch (e) {
+        refresh('unreadable frame');
+        controller.addError(
+          MarketError.parse(sourceId: id, message: e.message),
+        );
+      }
+    }
+
+    controller = StreamController<OrderBookSnapshot>(
+      onListen: () {
+        frames = ws
+            .subscribe(topic)
+            .listen(onFrame, onError: controller.addError);
+        states = ws.states.listen((state) {
+          if (state == WsConnectionState.reconnecting) book.invalidate();
+        });
+        // The subscription may already be held for another listener, or
+        // still held from one that just left: then the snapshot is not
+        // coming again, and the book as it stands is what there is.
+        final current = book.snapshot(instrument, at: _clock.now().toUtc());
+        if (current != null && ws.serverSubscriptions.contains(topic)) {
+          controller.add(current);
+        }
+      },
+      onCancel: () {
+        unawaited(frames?.cancel());
+        unawaited(states?.cancel());
+      },
+    );
+    return controller.stream;
   }
 
   @override

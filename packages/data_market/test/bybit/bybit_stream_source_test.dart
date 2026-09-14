@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:core/core.dart';
 import 'package:data_market/data_market.dart';
+import 'package:dio/dio.dart';
 import 'package:domain/domain.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
@@ -83,10 +86,10 @@ void main() {
       env.source
           .quoteStream(env.source.instruments([btc], 'USDT'))
           .listen((_) {});
-      async.elapse(const Duration(seconds: 21));
+      async.elapse(const Duration(seconds: 41));
 
       final ops = env.transport.last.commands.map((c) => c['op']).toList();
-      expect(ops, ['subscribe', 'ping']);
+      expect(ops, ['subscribe', 'ping', 'ping']);
 
       env.transport.last.push({'op': 'pong', 'success': true});
       async.flushMicrotasks();
@@ -161,7 +164,7 @@ void main() {
           'topic': 'orderbook.50.BTCUSDT',
           'type': type,
           'ts': 1789125875796,
-          'data': {'s': 'BTCUSDT', 'b': b, 'a': a, 'u': seq, 'seq': seq},
+          'data': {'s': 'BTCUSDT', 'b': b, 'a': a, 'u': seq, 'seq': seq * 10},
         };
 
         env.transport.last
@@ -311,4 +314,275 @@ void main() {
       expect(candles.map((c) => '${c.close}'), ['1.6', '1.8', '1.9']);
     });
   });
+
+  test('a listener that arrives while the book is still held gets it', () {
+    fakeAsync((async) {
+      final env = build();
+      final instrument = env.source.instrumentFor(btc, 'USDT')!;
+      final first = env.source.orderBookStream(instrument).listen((_) {});
+      async.elapse(const Duration(seconds: 1));
+      env.transport.last.push({
+        'topic': 'orderbook.50.BTCUSDT',
+        'type': 'snapshot',
+        'ts': 1,
+        'data': {
+          's': 'BTCUSDT',
+          'b': [
+            ['100', '1'],
+          ],
+          'a': [
+            ['101', '1'],
+          ],
+          'u': 5,
+          'seq': 1,
+        },
+      });
+      async.flushMicrotasks();
+
+      // Leaves, and another opens the pair within the unsubscribe grace.
+      unawaited(first.cancel());
+      async.elapse(const Duration(milliseconds: 500));
+      final books = <OrderBookSnapshot>[];
+      env.source.orderBookStream(instrument).listen(books.add);
+      async.flushMicrotasks();
+      expect(books, hasLength(1), reason: 'the held book is delivered at once');
+
+      env.transport.last.push({
+        'topic': 'orderbook.50.BTCUSDT',
+        'type': 'delta',
+        'ts': 2,
+        'data': {
+          's': 'BTCUSDT',
+          'b': [
+            ['100.5', '2'],
+          ],
+          'a': <List<String>>[],
+          'u': 6,
+          'seq': 2,
+        },
+      });
+      async.flushMicrotasks();
+      expect(books, hasLength(2));
+      expect(books.last.bids.first.price, Decimal.parse('100.5'));
+    });
+  });
+
+  test('an unreadable book frame asks the exchange for a fresh snapshot', () {
+    fakeAsync((async) {
+      final env = build();
+      final instrument = env.source.instrumentFor(btc, 'USDT')!;
+      final books = <OrderBookSnapshot>[];
+      final errors = <Object>[];
+      env.source
+          .orderBookStream(instrument)
+          .listen(books.add, onError: errors.add);
+      async.elapse(const Duration(seconds: 1));
+      env.transport.last
+        ..push({
+          'topic': 'orderbook.50.BTCUSDT',
+          'type': 'snapshot',
+          'ts': 1,
+          'data': {
+            's': 'BTCUSDT',
+            'b': [
+              ['100', '1'],
+            ],
+            'a': [
+              ['101', '1'],
+            ],
+            'u': 5,
+          },
+        })
+        ..push({
+          'topic': 'orderbook.50.BTCUSDT',
+          'type': 'delta',
+          'ts': 2,
+          'data': {
+            's': 'BTCUSDT',
+            'b': [
+              ['100', 'not a number'],
+            ],
+            'a': <List<String>>[],
+            'u': 6,
+          },
+        })
+        ..push({
+          'topic': 'orderbook.50.BTCUSDT',
+          'type': 'delta',
+          'ts': 3,
+          'data': {
+            's': 'BTCUSDT',
+            'b': [
+              ['99', '1'],
+            ],
+            'a': <List<String>>[],
+            'u': 7,
+          },
+        });
+      async
+        ..flushMicrotasks()
+        ..elapse(const Duration(seconds: 1));
+
+      expect(errors, hasLength(1));
+      // The delta after the bad one is not applied on a book it may have
+      // corrupted; the topic is taken again instead.
+      expect(books, hasLength(1));
+      final ops = env.transport.last.commands.map((c) => c['op']).toList();
+      expect(ops, ['subscribe', 'unsubscribe', 'subscribe']);
+    });
+  });
+
+  test('a live candle during the backfill wins over the REST copy', () {
+    fakeAsync((async) {
+      final gate = Completer<void>();
+      final transport = FakeTransport();
+      final http = _GatedAdapter(
+        gate.future,
+        FakeHttpAdapter(
+          (_, _) => FakeResponse(
+            200,
+            jsonEncode({
+              'retCode': 0,
+              'retMsg': 'OK',
+              'result': {
+                'list': [
+                  ['1789128000000', '1', '2', '0.5', '1.8', '1', '1'],
+                ],
+              },
+            }),
+          ),
+        ),
+      );
+      final source = BybitMarketDataSource(
+        client: BybitRestClient(
+          dio: createDio(baseUrl: BybitHosts.rest, adapter: http),
+        ),
+        ws: WsClient(
+          transport: transport,
+          url: BybitHosts.ws,
+          protocol: const BybitWsProtocol(),
+          backoff: Backoff(random: NoJitter()),
+        ),
+      );
+      final candles = <Candle>[];
+      source
+          .klineStream(source.instrumentFor(btc, 'USDT')!, Interval.h1)
+          .listen(candles.add);
+      async.elapse(const Duration(seconds: 1));
+      Map<String, Object?> live(String close) => {
+        'topic': 'kline.60.BTCUSDT',
+        'type': 'snapshot',
+        'ts': 1,
+        'data': [
+          {
+            'start': 1789128000000,
+            'open': '1',
+            'high': '2',
+            'low': '0.5',
+            'close': close,
+            'volume': '9',
+          },
+        ],
+      };
+      transport.last.push(live('1.6'));
+      async.flushMicrotasks();
+
+      transport.last.drop();
+      async.elapse(const Duration(seconds: 1)); // reconnected, REST pending
+      transport.last.push(live('2.1')); // newer than what REST will say
+      async.flushMicrotasks();
+      expect(candles, hasLength(1), reason: 'buffered while the backfill runs');
+
+      gate.complete();
+      async.elapse(const Duration(milliseconds: 100));
+      expect(candles.map((c) => '${c.close}'), ['1.6', '2.1']);
+    });
+  });
+
+  test('a long outage is paged back to the last candle seen', () {
+    fakeAsync((async) {
+      final ends = <String?>[];
+      final env = build(
+        rest: (i) {
+          ends.add(null);
+          // Page 0: the newest two; page 1: the two before them.
+          final rows = i == 0
+              ? [
+                  ['1789135200000', '1', '2', '0.5', '1.4', '1', '1'],
+                  ['1789131600000', '1', '2', '0.5', '1.3', '1', '1'],
+                ]
+              : [
+                  ['1789128000000', '1', '2', '0.5', '1.2', '1', '1'],
+                  ['1789124400000', '1', '2', '0.5', '1.1', '1', '1'],
+                ];
+          return FakeResponse(
+            200,
+            jsonEncode({
+              'retCode': 0,
+              'retMsg': 'OK',
+              'result': {'list': rows},
+            }),
+          );
+        },
+      );
+      final source = BybitMarketDataSource(
+        client: BybitRestClient(
+          dio: createDio(baseUrl: BybitHosts.rest, adapter: env.http),
+        ),
+        ws: WsClient(
+          transport: env.transport,
+          url: BybitHosts.ws,
+          protocol: const BybitWsProtocol(),
+          backoff: Backoff(random: NoJitter()),
+        ),
+        backfillPageSize: 2,
+      );
+      final candles = <Candle>[];
+      source
+          .klineStream(source.instrumentFor(btc, 'USDT')!, Interval.h1)
+          .listen(candles.add);
+      async.elapse(const Duration(seconds: 1));
+      env.transport.last.push({
+        'topic': 'kline.60.BTCUSDT',
+        'type': 'snapshot',
+        'ts': 1,
+        'data': [
+          {
+            'start': 1789128000000,
+            'open': '1',
+            'high': '2',
+            'low': '0.5',
+            'close': '1.0',
+            'volume': '9',
+          },
+        ],
+      });
+      async.flushMicrotasks();
+      env.transport.last.drop();
+      async
+        ..elapse(const Duration(seconds: 2))
+        ..flushMicrotasks();
+
+      expect(ends, hasLength(2), reason: 'two pages to reach the last candle');
+      expect(candles.map((c) => '${c.close}'), ['1', '1.2', '1.3', '1.4']);
+    });
+  });
+}
+
+/// Holds every answer until [gate] completes: a REST call in flight.
+final class _GatedAdapter implements HttpClientAdapter {
+  _GatedAdapter(this.gate, this.inner);
+
+  final Future<void> gate;
+  final HttpClientAdapter inner;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) => gate.then((_) => inner.fetch(options, requestStream, cancelFuture));
+
+  @override
+  void close({bool force = false}) => inner.close(force: force);
 }

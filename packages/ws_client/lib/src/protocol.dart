@@ -25,6 +25,10 @@ abstract interface class WsProtocol {
   /// ping/pong is enough.
   String? get ping;
   Duration? get pingInterval;
+
+  /// How many streams one command may carry; null for no limit. An
+  /// exchange that caps this rejects the whole command past the cap.
+  int? get maxStreamsPerCommand;
 }
 
 /// Binance's combined stream: `{"method": "SUBSCRIBE", "params": [...],
@@ -59,4 +63,7 @@ final class BinanceWsProtocol implements WsProtocol {
 
   @override
   Duration? get pingInterval => null;
+
+  @override
+  int? get maxStreamsPerCommand => null;
 }

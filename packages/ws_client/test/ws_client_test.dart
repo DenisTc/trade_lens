@@ -419,4 +419,83 @@ void main() {
       expect(done, isTrue);
     });
   });
+
+  test('a protocol with a cap gets its subscriptions in batches', () {
+    fakeAsync((async) {
+      final transport = FakeTransport();
+      final client = WsClient(
+        transport: transport,
+        url: url,
+        protocol: const _CappedProtocol(2),
+        backoff: Backoff(random: NoJitter()),
+      );
+      for (final s in ['a', 'b', 'c', 'd', 'e']) {
+        client.subscribe(s).listen((_) {});
+      }
+      async.elapse(const Duration(seconds: 1));
+
+      expect(transport.last.commands.map(paramsOf), [
+        ['a', 'b'],
+        ['c', 'd'],
+        ['e'],
+      ]);
+      expect(client.serverSubscriptions, {'a', 'b', 'c', 'd', 'e'});
+    });
+  });
+
+  test(
+    'resubscribe drops and takes the stream again, for a fresh snapshot',
+    () {
+      fakeAsync((async) {
+        final transport = FakeTransport();
+        final client = build(transport, heartbeatStream: null);
+        client.subscribe('book').listen((_) {});
+        async.elapse(const Duration(seconds: 1));
+
+        client.resubscribe('book');
+        async.elapse(const Duration(seconds: 1));
+
+        expect(transport.last.commands.map((c) => c['method']), [
+          'SUBSCRIBE',
+          'UNSUBSCRIBE',
+          'SUBSCRIBE',
+        ]);
+        expect(client.serverSubscriptions, {'book'});
+        // Nobody listens: nothing to refresh.
+        client.resubscribe('nobody');
+        async.elapse(const Duration(seconds: 1));
+        expect(transport.last.commands, hasLength(3));
+      });
+    },
+  );
+}
+
+/// Binance's format with a cap on streams per command.
+final class _CappedProtocol implements WsProtocol {
+  const _CappedProtocol(this.cap);
+
+  final int cap;
+  static const _binance = BinanceWsProtocol();
+
+  @override
+  int? get maxStreamsPerCommand => cap;
+
+  @override
+  String subscribe(List<String> streams, int id) =>
+      _binance.subscribe(streams, id);
+
+  @override
+  String unsubscribe(List<String> streams, int id) =>
+      _binance.unsubscribe(streams, id);
+
+  @override
+  ({String stream, Map<String, Object?> data})? decode(
+    Map<String, Object?> frame,
+  ) => _binance.decode(frame);
+
+  @override
+  String? get ping => null;
+
+  @override
+  Duration? get pingInterval => null;
 }

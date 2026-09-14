@@ -39,6 +39,10 @@ final class BybitWsProtocol implements WsProtocol {
 
   @override
   Duration get pingInterval => const Duration(seconds: 20);
+
+  /// Spot allows ten topics per subscribe command.
+  @override
+  int get maxStreamsPerCommand => 10;
 }
 
 /// Topic names of the public spot stream.

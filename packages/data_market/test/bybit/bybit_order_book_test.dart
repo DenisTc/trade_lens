@@ -20,7 +20,7 @@ void main() {
 
     expect(book.isValid, isFalse);
     expect(book.snapshot(btc, at: at), isNull);
-    expect(book.applyDelta([_l('1', '1')], [], sequence: 1), isFalse);
+    expect(book.applyDelta([_l('1', '1')], [], updateId: 1), isFalse);
   });
 
   test('a delta changes, adds and removes levels; sides stay sorted', () {
@@ -28,14 +28,14 @@ void main() {
       ..applySnapshot(
         [_l('100', '1'), _l('99', '2'), _l('98', '3'), _l('97', '4')],
         [_l('101', '1'), _l('102', '2')],
-        sequence: 10,
+        updateId: 10,
       );
 
     expect(
       book.applyDelta(
         [_l('99', '0'), _l('100.5', '5')], // 99 gone, a new best bid
         [_l('101', '9')], // resized
-        sequence: 11,
+        updateId: 11,
       ),
       isTrue,
     );
@@ -51,16 +51,25 @@ void main() {
     'a sequence that does not climb invalidates the book until a snapshot',
     () {
       final book = BybitOrderBook()
-        ..applySnapshot([_l('1', '1')], [_l('2', '1')], sequence: 5);
+        ..applySnapshot([_l('1', '1')], [_l('2', '1')], updateId: 5);
 
-      expect(book.applyDelta([], [], sequence: 5), isFalse);
+      expect(book.applyDelta([], [], updateId: 5), isFalse);
       expect(book.isValid, isFalse);
       expect(book.snapshot(btc, at: at), isNull);
       // Later deltas stay refused: a lost frame cannot be caught up on.
-      expect(book.applyDelta([], [], sequence: 7), isFalse);
+      expect(book.applyDelta([], [], updateId: 7), isFalse);
 
-      book.applySnapshot([_l('1', '1')], [_l('2', '1')], sequence: 8);
-      expect(book.applyDelta([], [], sequence: 9), isTrue);
+      book.applySnapshot([_l('1', '1')], [_l('2', '1')], updateId: 8);
+      expect(book.applyDelta([], [], updateId: 9), isTrue);
     },
   );
+
+  test('invalidate: a frame that could not be read hides the book', () {
+    final book = BybitOrderBook()
+      ..applySnapshot([_l('1', '1')], [_l('2', '1')], updateId: 5)
+      ..invalidate();
+
+    expect(book.snapshot(btc, at: at), isNull);
+    expect(book.applyDelta([], [], updateId: 6), isFalse);
+  });
 }

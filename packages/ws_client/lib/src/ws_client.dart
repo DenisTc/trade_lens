@@ -70,6 +70,10 @@ final class WsClient {
   final OutboundLimiter _limiter;
   final SubscriptionRegistry _registry = SubscriptionRegistry();
   final Set<String> _serverSubscriptions = {};
+
+  /// Streams to drop and take again on the next sync, for a consumer
+  /// whose state depends on the snapshot an exchange sends on subscribe.
+  final Set<String> _resubscribe = {};
   final Map<String, StreamController<WsMessage>> _channels = {};
   final Map<String, Timer> _pendingUnsubscribes = {};
   final StreamController<WsConnectionState> _states =
@@ -106,6 +110,15 @@ final class WsClient {
 
   /// Streams currently subscribed on the exchange (as far as we know).
   Set<String> get serverSubscriptions => Set.unmodifiable(_serverSubscriptions);
+
+  /// Asks the exchange for [stream] afresh: unsubscribe, then subscribe,
+  /// which makes an exchange resend whatever it sends on subscribe — a
+  /// book snapshot, for one. A no-op when nobody listens to [stream].
+  void resubscribe(String stream) {
+    if (_registry.count(stream) == 0) return;
+    _resubscribe.add(stream);
+    _markDirty();
+  }
 
   /// Frames of [stream]. Listening registers a consumer; cancelling
   /// unregisters it. Nothing is subscribed on the exchange until the first
@@ -240,20 +253,36 @@ final class WsClient {
     }
     if (connection == null || _state != WsConnectionState.connected) return;
 
-    final toUnsubscribe = _serverSubscriptions.difference(wanted).toList()
-      ..sort();
-    if (toUnsubscribe.isNotEmpty) {
-      if (!await _send(connection, protocol.unsubscribe, toUnsubscribe)) {
-        return;
-      }
-      _serverSubscriptions.removeAll(toUnsubscribe);
+    final refresh = _serverSubscriptions.intersection(_resubscribe);
+    _resubscribe.clear();
+    final toUnsubscribe = _serverSubscriptions.difference(wanted).union(refresh)
+      ..toList();
+    for (final batch in _batches(toUnsubscribe.toList()..sort())) {
+      if (!await _send(connection, protocol.unsubscribe, batch)) return;
+      _serverSubscriptions.removeAll(batch);
     }
     // Re-read: listeners may have changed while the limiter held us.
     final toSubscribe = _wanted.difference(_serverSubscriptions).toList()
       ..sort();
-    if (toSubscribe.isNotEmpty) {
-      if (!await _send(connection, protocol.subscribe, toSubscribe)) return;
-      _serverSubscriptions.addAll(toSubscribe);
+    for (final batch in _batches(toSubscribe)) {
+      if (!await _send(connection, protocol.subscribe, batch)) return;
+      _serverSubscriptions.addAll(batch);
+    }
+  }
+
+  /// One command per [WsProtocol.maxStreamsPerCommand] streams; an
+  /// exchange that caps the count rejects everything past it.
+  Iterable<List<String>> _batches(List<String> streams) sync* {
+    final size = protocol.maxStreamsPerCommand;
+    if (size == null || streams.length <= size) {
+      if (streams.isNotEmpty) yield streams;
+      return;
+    }
+    for (var i = 0; i < streams.length; i += size) {
+      yield streams.sublist(
+        i,
+        i + size > streams.length ? streams.length : i + size,
+      );
     }
   }
 
