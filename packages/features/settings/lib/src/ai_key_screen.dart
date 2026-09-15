@@ -22,6 +22,16 @@ class _AiKeyScreenState extends ConsumerState<AiKeyScreen> {
   var _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(onDeviceAvailabilityProvider.notifier).refresh());
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -56,6 +66,8 @@ class _AiKeyScreenState extends ConsumerState<AiKeyScreen> {
             OnDeviceAvailability.unsupportedOs => l10n.aiOnDeviceUnsupportedOs,
             OnDeviceAvailability.modelNotReady => l10n.aiOnDeviceNotReady,
             OnDeviceAvailability.disabled => l10n.aiOnDeviceDisabled,
+            OnDeviceAvailability.unsupportedLanguage =>
+              l10n.aiOnDeviceUnsupportedLanguage,
           },
           error: (_, _) => l10n.aiOnDeviceCheckFailed,
           loading: () => l10n.aiOnDeviceChecking,

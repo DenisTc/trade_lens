@@ -21,7 +21,7 @@ available, otherwise the existing cloud or setup-hint path.
 import 'package:on_device_llm/on_device_llm.dart';
 
 final OnDeviceLlmApi llm = OnDeviceLlm();
-if (await llm.availability() == OnDeviceAvailability.available) {
+if (await llm.availability('en') == OnDeviceAvailability.available) {
   final summary = await llm.generate(
     system: 'Explain the supplied backtest metrics without investment advice.',
     prompt: 'Return: 2%. Maximum drawdown: 1%. Trades: 6.',
@@ -34,16 +34,17 @@ if (await llm.availability() == OnDeviceAvailability.available) {
 Inject an implementation of `OnDeviceLlmApi` in consumers. Package tests inject
 a fake generated host API through `OnDeviceLlm(hostApi: ...)`.
 
-The iOS implementation exposes model availability separately and creates a
-fresh session for each request. The Dart adapter places the requested language
-in the system instructions. The host caps returned text at `maxOutputChars`
+The iOS implementation checks both model availability and support for the
+requested locale, then creates a fresh session for each request. The Dart
+adapter places the requested language in the system instructions. The host caps returned text at `maxOutputChars`
 Swift characters (grapheme clusters).
 The cap can truncate sentences or structured text; stage 1 returns plain text
 and does not guarantee valid JSON. It is an output cap, not a generation token
 budget. Calls with a nonpositive limit are rejected before reaching the host.
 
-Only one generation may run at a time per plugin instance. The current iOS host
-rejects an invalid or concurrent request with `generation_failed`. `cancel()`
+Only one generation may run at a time per `OnDeviceLlm` façade. A new call
+cancels and awaits the active host generation before it starts. The current iOS
+host also rejects an invalid or concurrent request with `generation_failed`. `cancel()`
 cancels the stored task; cancellation also currently surfaces as
 `generation_failed` to the Dart adapter, which recognizes caller cancellation
 through its own `CancelSignal`. Repeated cancellation is harmless. A new call

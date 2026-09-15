@@ -16,6 +16,7 @@ enum OnDeviceAvailability {
   unsupportedOs,
   modelNotReady,
   disabled,
+  unsupportedLanguage,
 }
 
 class OnDeviceRequest {
@@ -34,7 +35,7 @@ class OnDeviceRequest {
 
 @HostApi()
 abstract class OnDeviceLlmHostApi {
-  OnDeviceAvailability availability();
+  OnDeviceAvailability availability(String languageCode);
 
   @async
   String generate(OnDeviceRequest request);

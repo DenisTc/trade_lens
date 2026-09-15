@@ -13,10 +13,10 @@ public final class OnDeviceLlmPlugin: NSObject, FlutterPlugin, OnDeviceLlmHostAp
         OnDeviceLlmHostApiSetup.setUp(binaryMessenger: registrar.messenger(), api: instance)
     }
 
-    func availability() throws -> OnDeviceAvailability {
+    func availability(languageCode: String) throws -> OnDeviceAvailability {
         #if canImport(FoundationModels)
         if #available(iOS 26, *) {
-            return modelAvailability()
+            return modelAvailability(languageCode: languageCode)
         }
         #endif
         return .unsupportedOs
@@ -50,9 +50,14 @@ public final class OnDeviceLlmPlugin: NSObject, FlutterPlugin, OnDeviceLlmHostAp
 
     #if canImport(FoundationModels)
     @available(iOS 26, *)
-    private func modelAvailability() -> OnDeviceAvailability {
+    private func modelAvailability(languageCode: String) -> OnDeviceAvailability {
         switch SystemLanguageModel.default.availability {
         case .available:
+            guard SystemLanguageModel.default.supportsLocale(
+                Locale(identifier: languageCode)
+            ) else {
+                return .unsupportedLanguage
+            }
             return .available
         case .unavailable(.deviceNotEligible):
             return .unsupportedDevice

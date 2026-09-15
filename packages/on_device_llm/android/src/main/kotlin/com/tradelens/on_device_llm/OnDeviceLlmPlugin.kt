@@ -14,7 +14,8 @@ class OnDeviceLlmPlugin : FlutterPlugin, OnDeviceLlmHostApi {
 
     // TODO: Integrate com.google.mlkit:genai-prompt after verifying its version,
     // device eligibility, model readiness, generation, and cancellation on hardware.
-    override fun availability(): OnDeviceAvailability = OnDeviceAvailability.UNSUPPORTED_DEVICE
+    override fun availability(languageCode: String): OnDeviceAvailability =
+        OnDeviceAvailability.UNSUPPORTED_DEVICE
 
     override suspend fun generate(request: OnDeviceRequest): String =
         throw FlutterError(

@@ -1,9 +1,17 @@
+import 'dart:ui';
+
 import 'package:domain/domain.dart';
 import 'package:features_shared/src/providers/storage.dart';
-import 'package:flutter/widgets.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'locale.g.dart';
+
+/// Effective language used by app-level services before a BuildContext exists.
+@Riverpod(keepAlive: true)
+String appLanguageCode(Ref ref) {
+  final chosen = ref.watch(appLocaleSettingProvider).value;
+  return (chosen ?? PlatformDispatcher.instance.locale).languageCode;
+}
 
 /// Language chosen in Settings. `null` follows the system locale.
 @Riverpod(keepAlive: true)

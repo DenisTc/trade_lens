@@ -48,7 +48,7 @@ void main() {
   });
 
   test(
-    'cancellation reaches native generation and ends with AiCancelled',
+    'cancellation reaches local generation and ends with AiCancelled',
     () async {
       llm.pending = Completer<String>();
       final cancel = CancelSignal();
@@ -69,7 +69,7 @@ void main() {
     },
   );
 
-  test('maps native generation failures to a network error', () async {
+  test('maps local generation failures to an on-device error', () async {
     llm.failure = PlatformException(
       code: 'generation_failed',
       message: 'runtime failed',
@@ -85,7 +85,7 @@ void main() {
           )
           .toList(),
       throwsA(
-        isA<AiNetwork>().having(
+        isA<AiOnDevice>().having(
           (error) => error.reason,
           'reason',
           contains('runtime failed'),
@@ -106,7 +106,7 @@ final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
   bool cancelled = false;
 
   @override
-  Future<OnDeviceAvailability> availability() async =>
+  Future<OnDeviceAvailability> availability(String languageCode) async =>
       OnDeviceAvailability.available;
 
   @override

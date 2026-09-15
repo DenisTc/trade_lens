@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ai_insights/ai_insights.dart';
+import 'package:flutter/services.dart';
 import 'package:on_device_llm/on_device_llm.dart';
 
 /// Adapts the native completed-answer API to [SummaryProvider].
@@ -74,7 +75,11 @@ final class OnDeviceSummaryProvider implements SummaryProvider {
         await awaitGenerationSettlement();
         throw const AiError.cancelled();
       }
-      throw AiError.network('$error');
+      final reason = switch (error) {
+        PlatformException(:final message, :final code) => message ?? code,
+        _ => '$error',
+      };
+      throw AiError.onDevice(reason);
     }
   }
 }

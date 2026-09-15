@@ -15,6 +15,7 @@ void main() {
     bool aiEnabled = true,
     OnDeviceAvailability availability = OnDeviceAvailability.unsupportedDevice,
     Future<OnDeviceAvailability> Function()? availabilityFactory,
+    _FakeOnDeviceLlm? onDeviceLlm,
   }) => testApp(
     overrides: [
       ...fakeOverrides(
@@ -28,10 +29,14 @@ void main() {
             source: InsightsConfigOrigin.remote,
           ),
         ),
+        onDeviceLlm:
+            onDeviceLlm ??
+            _FakeOnDeviceLlm(
+              status: availability,
+              availabilityFactory: availabilityFactory,
+            ),
       ),
-      onDeviceAvailabilityProvider.overrideWith(
-        (ref) => availabilityFactory?.call() ?? Future.value(availability),
-      ),
+      appLanguageCodeProvider.overrideWithValue('en'),
     ],
     home: const AiKeyScreen(),
   );
@@ -110,11 +115,18 @@ void main() {
     (OnDeviceAvailability.available, 'Available — summaries run on this phone'),
     (
       OnDeviceAvailability.unsupportedDevice,
-      'This phone cannot run it (needs iPhone 15 Pro or newer, or a Pixel 8+)',
+      'This phone cannot run it. Android support is not wired yet',
     ),
-    (OnDeviceAvailability.unsupportedOs, 'Needs iOS 26 or a supported Android'),
+    (
+      OnDeviceAvailability.unsupportedOs,
+      'Needs iOS 26. Android support is not wired yet',
+    ),
     (OnDeviceAvailability.modelNotReady, 'The model is still downloading'),
     (OnDeviceAvailability.disabled, 'Apple Intelligence is off in Settings'),
+    (
+      OnDeviceAvailability.unsupportedLanguage,
+      'Not available for this language on this phone',
+    ),
   ]) {
     testWidgets('shows the $availability on-device status', (tester) async {
       await tester.pumpWidget(app(availability: availability));
@@ -149,6 +161,17 @@ void main() {
     expect(find.text('The model is still downloading'), findsNothing);
   });
 
+  testWidgets('re-probes on-device availability when the screen opens', (
+    tester,
+  ) async {
+    final llm = _FakeOnDeviceLlm(status: OnDeviceAvailability.available);
+
+    await tester.pumpWidget(app(onDeviceLlm: llm));
+    await tester.pump();
+
+    expect(llm.availabilityCalls, 2);
+  });
+
   testWidgets('the hub row reflects what is still missing', (tester) async {
     var opened = false;
     Widget hub() => testApp(
@@ -180,4 +203,32 @@ void main() {
     await tester.tap(find.byKey(const Key('settings_ai')));
     expect(opened, isTrue);
   });
+}
+
+final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
+  _FakeOnDeviceLlm({required this.status, this.availabilityFactory});
+
+  final OnDeviceAvailability status;
+  final Future<OnDeviceAvailability> Function()? availabilityFactory;
+  int availabilityCalls = 0;
+
+  @override
+  Future<OnDeviceAvailability> availability(String languageCode) {
+    availabilityCalls++;
+    return availabilityFactory?.call() ?? Future.value(status);
+  }
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<String> generate({
+    required String system,
+    required String prompt,
+    required String languageCode,
+    required int maxOutputChars,
+  }) async => 'unused';
+
+  @override
+  Future<String> runtimeName() async => 'fake';
 }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:ai_insights/ai_insights.dart';
 import 'package:backtest/backtest.dart';
 import 'package:features_insights/src/ai/demo_transport.dart';
@@ -68,7 +66,6 @@ final class BacktestExplanationState {
 class BacktestExplanationController extends _$BacktestExplanationController {
   CancelSignal? _cancel;
   int _generation = 0;
-  Completer<void>? _nativeSession;
   Usage _usage = const Usage();
   double _costUsd = 0;
 
@@ -122,7 +119,6 @@ class BacktestExplanationController extends _$BacktestExplanationController {
     }
     state = state.copyWith(onDevice: onDevice);
     SummaryProvider? session;
-    Completer<void>? nativeSession;
     try {
       final apiKey = demo
           ? 'demo'
@@ -134,13 +130,6 @@ class BacktestExplanationController extends _$BacktestExplanationController {
         throw const AiError.unauthorized();
       }
       if (onDevice) {
-        final previousNativeSession = _nativeSession;
-        if (previousNativeSession != null) {
-          await previousNativeSession.future;
-          if (!_isCurrent(generation, cancel)) return;
-        }
-        nativeSession = Completer<void>();
-        _nativeSession = nativeSession;
         session = OnDeviceSummaryProvider(ref.read(onDeviceLlmProvider));
       } else {
         // This shared live provider also carries the app's TL_AI_DEMO override.
@@ -175,10 +164,6 @@ class BacktestExplanationController extends _$BacktestExplanationController {
         state = state.copyWith(error: AiError.network('$error'));
       }
     } finally {
-      if (nativeSession != null) {
-        nativeSession.complete();
-        if (identical(_nativeSession, nativeSession)) _nativeSession = null;
-      }
       _usage += session?.usage ?? const Usage();
       _costUsd += session?.costUsd ?? 0;
       if (_isCurrent(generation, cancel)) {

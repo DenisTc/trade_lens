@@ -18,6 +18,7 @@ void main() {
             overrides: [
               ...fakeOverrides(
                 source: FakeMarketDataSource(),
+                onDeviceLlm: _AvailabilityLlm(availability),
                 config: FakeInsightsConfigSource(
                   const InsightsConfig(
                     insightsScreenJson: '{"schema":1,"children":[]}',
@@ -26,9 +27,7 @@ void main() {
                   ),
                 ),
               ),
-              onDeviceAvailabilityProvider.overrideWith(
-                (ref) async => availability,
-              ),
+              appLanguageCodeProvider.overrideWithValue('en'),
             ],
             home: const BacktestRouteScreen(symbol: 'BTCUSDT'),
           ),
@@ -43,4 +42,28 @@ void main() {
       },
     );
   }
+}
+
+final class _AvailabilityLlm implements OnDeviceLlmApi {
+  const _AvailabilityLlm(this.status);
+
+  final OnDeviceAvailability status;
+
+  @override
+  Future<OnDeviceAvailability> availability(String languageCode) async =>
+      status;
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<String> generate({
+    required String system,
+    required String prompt,
+    required String languageCode,
+    required int maxOutputChars,
+  }) async => 'unused';
+
+  @override
+  Future<String> runtimeName() async => 'fake';
 }

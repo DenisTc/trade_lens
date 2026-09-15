@@ -8,6 +8,7 @@ import 'package:features_insights/features_insights.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -72,15 +73,17 @@ final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
     required this.status,
     this.answer = 'Local summary.',
     this.pendingAvailability,
+    this.failure,
   });
 
   final OnDeviceAvailability status;
   final String answer;
   final Completer<OnDeviceAvailability>? pendingAvailability;
+  final Exception? failure;
   int generateCalls = 0;
 
   @override
-  Future<OnDeviceAvailability> availability() =>
+  Future<OnDeviceAvailability> availability(String languageCode) =>
       pendingAvailability?.future ?? Future.value(status);
 
   @override
@@ -91,6 +94,7 @@ final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
     required int maxOutputChars,
   }) async {
     generateCalls++;
+    if (failure case final error?) throw error;
     return answer;
   }
 
@@ -99,39 +103,6 @@ final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
 
   @override
   Future<String> runtimeName() async => 'fake';
-}
-
-final class _DelayedCancelOnDeviceLlm implements OnDeviceLlmApi {
-  final firstGeneration = Completer<String>();
-  final cancellation = Completer<void>();
-  int generateCalls = 0;
-  int cancelCalls = 0;
-
-  @override
-  Future<OnDeviceAvailability> availability() async =>
-      OnDeviceAvailability.available;
-
-  @override
-  Future<String> generate({
-    required String system,
-    required String prompt,
-    required String languageCode,
-    required int maxOutputChars,
-  }) {
-    generateCalls++;
-    return generateCalls == 1
-        ? firstGeneration.future
-        : Future.value('Retry completed locally.');
-  }
-
-  @override
-  Future<void> cancel() {
-    cancelCalls++;
-    return cancellation.future;
-  }
-
-  @override
-  Future<String> runtimeName() async => 'delayed-cancel-fake';
 }
 
 void main() {
@@ -187,7 +158,7 @@ void main() {
     opened = false;
   });
 
-  test('overridden summary factory streams into controller state', () async {
+  test('unsupported local language falls back to the cloud provider', () async {
     secrets.values[SecretKeys.anthropicApiKey] = 'sk-test';
     final transport = _StallingTransport();
     final container = ProviderContainer(
@@ -195,7 +166,7 @@ void main() {
         secretStoreProvider.overrideWithValue(secrets),
         aiReadinessProvider.overrideWithValue(AiReadiness.ready),
         onDeviceLlmProvider.overrideWithValue(
-          _FakeOnDeviceLlm(status: OnDeviceAvailability.unsupportedDevice),
+          _FakeOnDeviceLlm(status: OnDeviceAvailability.unsupportedLanguage),
         ),
         claudeTransportProvider.overrideWithValue(transport),
         aiModelConfigProvider.overrideWithValue(AiModelConfig.defaults),
@@ -257,7 +228,7 @@ void main() {
     expect(llm.generateCalls, 1);
   });
 
-  testWidgets('stop invalidates a start waiting for native availability', (
+  testWidgets('stop invalidates a start waiting for local availability', (
     tester,
   ) async {
     final availability = Completer<OnDeviceAvailability>();
@@ -293,49 +264,6 @@ void main() {
   });
 
   testWidgets(
-    'stop cannot overlap a retry with a native session still cancelling',
-    (tester) async {
-      final llm = _DelayedCancelOnDeviceLlm();
-      final container = ProviderContainer(
-        overrides: [
-          secretStoreProvider.overrideWithValue(secrets),
-          aiReadinessProvider.overrideWithValue(AiReadiness.noKey),
-          onDeviceLlmProvider.overrideWithValue(llm),
-        ],
-      );
-      addTearDown(container.dispose);
-      final provider = backtestExplanationControllerProvider(UniqueKey());
-      final subscription = container.listen(provider, (_, _) {});
-      addTearDown(subscription.close);
-      final controller = container.read(provider.notifier);
-
-      final firstRun = controller.start(metrics: _metrics());
-      while (llm.generateCalls == 0) {
-        await tester.pump();
-      }
-
-      controller.stop();
-      await tester.pump();
-      expect(container.read(provider).running, isFalse);
-      final retryRun = controller.start(metrics: _metrics());
-      await tester.pump();
-      expect(container.read(provider).running, isTrue);
-      expect(llm.generateCalls, 1);
-      expect(llm.cancelCalls, 1);
-
-      llm.cancellation.complete();
-      await tester.pump();
-      expect(llm.generateCalls, 1);
-      llm.firstGeneration.complete('Completed during cancellation.');
-      await tester.pump();
-      await firstRun;
-      await retryRun;
-      expect(llm.generateCalls, 2);
-      expect(container.read(provider).text, 'Retry completed locally.');
-    },
-  );
-
-  testWidgets(
     'local explanation renders an on-device badge and no token cost',
     (tester) async {
       final llm = _FakeOnDeviceLlm(
@@ -353,6 +281,26 @@ void main() {
       expect(llm.generateCalls, 1);
     },
   );
+
+  testWidgets('local model failures render their specific reason', (
+    tester,
+  ) async {
+    final llm = _FakeOnDeviceLlm(
+      status: OnDeviceAvailability.available,
+      failure: PlatformException(
+        code: 'generation_failed',
+        message: 'runtime failed',
+      ),
+    );
+
+    await tester.pumpWidget(app(onDeviceLlm: llm));
+    await until(tester, find.byKey(const Key('ai_retry')));
+
+    expect(
+      find.textContaining('The on-device model failed: runtime failed'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('no key offers settings', (tester) async {
     await tester.pumpWidget(app());

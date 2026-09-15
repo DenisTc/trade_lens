@@ -203,7 +203,8 @@ enum class OnDeviceAvailability(val raw: Int) {
   UNSUPPORTED_DEVICE(1),
   UNSUPPORTED_OS(2),
   MODEL_NOT_READY(3),
-  DISABLED(4);
+  DISABLED(4),
+  UNSUPPORTED_LANGUAGE(5);
 
   companion object {
     fun ofRaw(raw: Int): OnDeviceAvailability? {
@@ -294,7 +295,7 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
 
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface OnDeviceLlmHostApi {
-  fun availability(): OnDeviceAvailability
+  fun availability(languageCode: String): OnDeviceAvailability
   suspend fun generate(request: OnDeviceRequest): String
   fun cancel()
   fun describeRuntime(): String
@@ -311,9 +312,11 @@ interface OnDeviceLlmHostApi {
       run {
         val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.on_device_llm.OnDeviceLlmHostApi.availability$separatedMessageChannelSuffix", codec)
         if (api != null) {
-          channel.setMessageHandler { _, reply ->
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val languageCodeArg = args[0] as String
             val wrapped: List<Any?> = try {
-              listOf(api.availability())
+              listOf(api.availability(languageCodeArg))
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)
             }

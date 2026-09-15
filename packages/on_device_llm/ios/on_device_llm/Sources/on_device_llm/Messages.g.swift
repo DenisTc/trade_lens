@@ -190,6 +190,7 @@ enum OnDeviceAvailability: Int, CaseIterable {
   case unsupportedOs = 2
   case modelNotReady = 3
   case disabled = 4
+  case unsupportedLanguage = 5
 }
 
 /// Generated class from Pigeon that represents data sent in messages.
@@ -290,7 +291,7 @@ class MessagesPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol OnDeviceLlmHostApi {
-  func availability() throws -> OnDeviceAvailability
+  func availability(languageCode: String) throws -> OnDeviceAvailability
   func generate(request: OnDeviceRequest) async throws -> String
   func cancel() throws
   func describeRuntime() throws -> String
@@ -304,9 +305,11 @@ class OnDeviceLlmHostApiSetup {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
     let availabilityChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.on_device_llm.OnDeviceLlmHostApi.availability\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      availabilityChannel.setMessageHandler { _, reply in
+      availabilityChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let languageCodeArg = args[0] as! String
         do {
-          let result = try api.availability()
+          let result = try api.availability(languageCode: languageCodeArg)
           reply(wrapResult(result))
         } catch {
           reply(wrapError(error))

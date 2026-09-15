@@ -233,6 +233,7 @@ class _ErrorNote extends StatelessWidget {
       AiUnauthorized() => l10n.aiErrorUnauthorized,
       AiRateLimited() => l10n.aiErrorRateLimited,
       AiNetwork() => l10n.aiErrorNetwork,
+      AiOnDevice(:final reason) => l10n.aiErrorOnDevice(reason),
       AiRefused() => l10n.aiErrorRefused,
       AiBudgetExceeded() => l10n.aiErrorBudget,
       AiBadRequest() ||

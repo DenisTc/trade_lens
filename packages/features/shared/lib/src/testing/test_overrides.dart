@@ -56,7 +56,7 @@ final class _UnsupportedOnDeviceLlm implements OnDeviceLlmApi {
   const _UnsupportedOnDeviceLlm();
 
   @override
-  Future<OnDeviceAvailability> availability() async =>
+  Future<OnDeviceAvailability> availability(String languageCode) async =>
       OnDeviceAvailability.unsupportedDevice;
 
   @override
