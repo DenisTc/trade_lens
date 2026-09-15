@@ -22,6 +22,16 @@ class _AiKeyScreenState extends ConsumerState<AiKeyScreen> {
   var _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(onDeviceAvailabilityProvider.notifier).refresh());
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -46,6 +56,22 @@ class _AiKeyScreenState extends ConsumerState<AiKeyScreen> {
     final key = ref.watch(aiApiKeyProvider).value;
     final consent = ref.watch(aiConsentProvider).value ?? false;
     final enabled = ref.watch(aiInsightsEnabledProvider);
+    final onDeviceStatus = ref
+        .watch(onDeviceAvailabilityProvider)
+        .when(
+          data: (availability) => switch (availability) {
+            OnDeviceAvailability.available => l10n.aiOnDeviceAvailable,
+            OnDeviceAvailability.unsupportedDevice =>
+              l10n.aiOnDeviceUnsupportedDevice,
+            OnDeviceAvailability.unsupportedOs => l10n.aiOnDeviceUnsupportedOs,
+            OnDeviceAvailability.modelNotReady => l10n.aiOnDeviceNotReady,
+            OnDeviceAvailability.disabled => l10n.aiOnDeviceDisabled,
+            OnDeviceAvailability.unsupportedLanguage =>
+              l10n.aiOnDeviceUnsupportedLanguage,
+          },
+          error: (_, _) => l10n.aiOnDeviceCheckFailed,
+          loading: () => l10n.aiOnDeviceChecking,
+        );
     return Scaffold(
       appBar: AppBar(title: Text(l10n.aiSettingsRow)),
       body: ListView(
@@ -62,6 +88,11 @@ class _AiKeyScreenState extends ConsumerState<AiKeyScreen> {
                 style: theme.textTheme.bodySmall?.copyWith(color: t.warn),
               ),
             ),
+          SettingsRow(
+            key: const Key('ai_on_device_row'),
+            title: l10n.aiOnDeviceRow,
+            subtitle: onDeviceStatus,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Text(

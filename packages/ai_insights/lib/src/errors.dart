@@ -28,6 +28,9 @@ sealed class AiError implements Exception {
   /// The stream ended mid-way or carried something unparsable.
   const factory AiError.invalidResponse(String reason) = AiInvalidResponse;
 
+  /// The phone's local model failed while producing an answer.
+  const factory AiError.onDevice(String reason) = AiOnDevice;
+
   /// The caller cancelled (left the screen).
   const factory AiError.cancelled() = AiCancelled;
 }
@@ -80,6 +83,15 @@ final class AiInvalidResponse extends AiError {
 
   @override
   String toString() => 'AiInvalidResponse($reason)';
+}
+
+final class AiOnDevice extends AiError {
+  const AiOnDevice(this.reason);
+
+  final String reason;
+
+  @override
+  String toString() => 'AiOnDevice($reason)';
 }
 
 final class AiCancelled extends AiError {

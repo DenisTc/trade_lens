@@ -8,6 +8,7 @@ import 'package:features_insights/features_insights.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -67,6 +68,43 @@ final class _FakeSummaryProvider implements SummaryProvider {
   }
 }
 
+final class _FakeOnDeviceLlm implements OnDeviceLlmApi {
+  _FakeOnDeviceLlm({
+    required this.status,
+    this.answer = 'Local summary.',
+    this.pendingAvailability,
+    this.failure,
+  });
+
+  final OnDeviceAvailability status;
+  final String answer;
+  final Completer<OnDeviceAvailability>? pendingAvailability;
+  final Exception? failure;
+  int generateCalls = 0;
+
+  @override
+  Future<OnDeviceAvailability> availability(String languageCode) =>
+      pendingAvailability?.future ?? Future.value(status);
+
+  @override
+  Future<String> generate({
+    required String system,
+    required String prompt,
+    required String languageCode,
+    required int maxOutputChars,
+  }) async {
+    generateCalls++;
+    if (failure case final error?) throw error;
+    return answer;
+  }
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<String> runtimeName() async => 'fake';
+}
+
 void main() {
   late FakeSecretStore secrets;
   late FakeSettingsStore settings;
@@ -74,6 +112,7 @@ void main() {
 
   Widget app({
     ClaudeTransport? transport,
+    OnDeviceLlmApi? onDeviceLlm,
     bool enabled = true,
     Locale locale = const Locale('en'),
   }) => testApp(
@@ -90,6 +129,7 @@ void main() {
             source: InsightsConfigOrigin.remote,
           ),
         ),
+        onDeviceLlm: onDeviceLlm,
       ),
       demoClaudeTransportProvider.overrideWithValue(
         DemoClaudeTransport(delay: Duration.zero),
@@ -118,13 +158,16 @@ void main() {
     opened = false;
   });
 
-  test('overridden summary factory streams into controller state', () async {
+  test('unsupported local language falls back to the cloud provider', () async {
     secrets.values[SecretKeys.anthropicApiKey] = 'sk-test';
     final transport = _StallingTransport();
     final container = ProviderContainer(
       overrides: [
         secretStoreProvider.overrideWithValue(secrets),
         aiReadinessProvider.overrideWithValue(AiReadiness.ready),
+        onDeviceLlmProvider.overrideWithValue(
+          _FakeOnDeviceLlm(status: OnDeviceAvailability.unsupportedLanguage),
+        ),
         claudeTransportProvider.overrideWithValue(transport),
         aiModelConfigProvider.overrideWithValue(AiModelConfig.defaults),
         summaryProviderFactoryProvider.overrideWithValue((actual, config) {
@@ -155,6 +198,108 @@ void main() {
     expect(state.running, isFalse);
     expect(state.error, isNull);
     expect(state.demo, isFalse);
+    expect(state.onDevice, isFalse);
+  });
+
+  test('available local runtime runs without a key or consent', () async {
+    final llm = _FakeOnDeviceLlm(
+      status: OnDeviceAvailability.available,
+      answer: 'Computed locally.',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        secretStoreProvider.overrideWithValue(secrets),
+        aiReadinessProvider.overrideWithValue(AiReadiness.noKey),
+        onDeviceLlmProvider.overrideWithValue(llm),
+        aiModelConfigProvider.overrideWithValue(AiModelConfig.defaults),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = backtestExplanationControllerProvider(UniqueKey());
+
+    await container.read(provider.notifier).start(metrics: _metrics());
+
+    final state = container.read(provider);
+    expect(state.text, 'Computed locally.');
+    expect(state.onDevice, isTrue);
+    expect(state.usage, const Usage());
+    expect(state.costUsd, 0);
+    expect(state.error, isNull);
+    expect(llm.generateCalls, 1);
+  });
+
+  testWidgets('stop invalidates a start waiting for local availability', (
+    tester,
+  ) async {
+    final availability = Completer<OnDeviceAvailability>();
+    final llm = _FakeOnDeviceLlm(
+      status: OnDeviceAvailability.available,
+      pendingAvailability: availability,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        secretStoreProvider.overrideWithValue(secrets),
+        aiReadinessProvider.overrideWithValue(AiReadiness.noKey),
+        onDeviceLlmProvider.overrideWithValue(llm),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = backtestExplanationControllerProvider(UniqueKey());
+    final subscription = container.listen(provider, (_, _) {});
+    addTearDown(subscription.close);
+    final controller = container.read(provider.notifier);
+
+    final run = controller.start(metrics: _metrics());
+    await tester.pump();
+    expect(container.read(provider).running, isTrue);
+
+    controller.stop();
+    expect(container.read(provider).running, isFalse);
+    availability.complete(OnDeviceAvailability.available);
+    await tester.pump();
+    await run;
+
+    expect(llm.generateCalls, 0);
+    expect(container.read(provider).isIdle, isFalse);
+  });
+
+  testWidgets(
+    'local explanation renders an on-device badge and no token cost',
+    (tester) async {
+      final llm = _FakeOnDeviceLlm(
+        status: OnDeviceAvailability.available,
+        answer: 'Computed locally.',
+      );
+
+      await tester.pumpWidget(app(onDeviceLlm: llm));
+      await until(tester, find.byKey(const Key('ai_retry')));
+
+      expect(find.byKey(const Key('ai_on_device_badge')), findsOneWidget);
+      expect(find.text('On device'), findsOneWidget);
+      expect(find.byKey(const Key('ai_cost')), findsNothing);
+      expect(find.byKey(const Key('ai_on_device_cost')), findsOneWidget);
+      expect(llm.generateCalls, 1);
+    },
+  );
+
+  testWidgets('local model failures render their specific reason', (
+    tester,
+  ) async {
+    final llm = _FakeOnDeviceLlm(
+      status: OnDeviceAvailability.available,
+      failure: PlatformException(
+        code: 'generation_failed',
+        message: 'runtime failed',
+      ),
+    );
+
+    await tester.pumpWidget(app(onDeviceLlm: llm));
+    await until(tester, find.byKey(const Key('ai_retry')));
+
+    expect(
+      find.textContaining('The on-device model failed: runtime failed'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('no key offers settings', (tester) async {

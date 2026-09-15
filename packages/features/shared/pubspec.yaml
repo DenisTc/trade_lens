@@ -17,6 +17,7 @@ dependencies:
   flutter_test:
     sdk: flutter
   intl: ^0.20.3
+  on_device_llm:
   riverpod_annotation: ^4.0.7
 dev_dependencies:
   build_runner: ^2.16.1

@@ -17,6 +17,9 @@ class BacktestRouteScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final instruments = ref.watch(marketInstrumentsProvider);
     final aiEnabled = ref.watch(aiInsightsEnabledProvider);
+    final onDeviceAvailable =
+        ref.watch(onDeviceAvailabilityProvider).value ==
+        OnDeviceAvailability.available;
     return AsyncValueView(
       value: instruments,
       loading: () => Scaffold(
@@ -42,7 +45,7 @@ class BacktestRouteScreen extends ConsumerWidget {
         }
         return BacktestScreen(
           instrument: match.first,
-          onExplain: aiEnabled
+          onExplain: aiEnabled || onDeviceAvailable
               ? (metrics) => showBacktestExplanationSheet(
                   context,
                   metrics: metrics,

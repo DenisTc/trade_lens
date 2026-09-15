@@ -71,6 +71,7 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Region fallback Binance → Binance US → Bybit → CoinGecko; two exchanges behind one interface | `packages/data_market/lib/src/region`, `packages/data_market/lib/src/{binance,bybit}` |
 | Remote Config + server-driven UI | `packages/sdui` (parser, allowlist, renderer), `packages/data_config` (Firebase Remote Config, realtime updates), `packages/features/insights` |
 | Claude API: SSE streaming, tool use, structured output, cost accounting | `packages/ai_insights`, `packages/features/insights/lib/src/ai` |
+| Pigeon plugin: Apple Foundation Models; Android fallback and planned ML Kit GenAI behind SummaryProvider | `packages/on_device_llm` |
 | SSL pinning by SPKI, secure storage | `packages/data_market/lib/src/http`, secure storage with the AI feature |
 | Deep links, custom scheme and https, with an allowlist | `apps/mobile/lib/deep_links.dart`, `apps/mobile/lib/di/deep_link_lifecycle.dart` |
 | Design tokens as a `ThemeExtension`, bundled fonts, custom glass tab bar | `packages/features/shared/lib/src/theme`, `docs/design` |
@@ -92,6 +93,7 @@ packages/
   chart/                CustomPainter engine (future pub.dev package)
   sdui/                 JSON schema + node renderer
   ai_insights/          Claude API client, tools, structured output
+  on_device_llm/        Pigeon bridge to Apple Foundation Models; Android fallback, ML Kit planned
   backtest/             grid and DCA over historical candles: trades, metrics (v2)
   features/shared/      Riverpod providers of the domain interfaces, shared widgets
   features/             markets, portfolio, insights, settings (UI + providers)
@@ -250,6 +252,34 @@ step, volume scaling and take profit), plus Pionex overview articles.
 These supply descriptions of the mechanics only; no code from anywhere
 is used.
 
+## On-device AI (v3)
+
+Backtest explanations select a `SummaryProvider` automatically: the native
+model first when the device reports it available, otherwise the existing
+Claude path when the user's key and consent are ready, otherwise the existing
+setup hint and recorded example. The local branch receives only already
+computed backtest metrics, exposes no tools, sends nothing off the phone, and
+is marked **On device** in the sheet with zero cloud token cost. `TL_AI_DEMO`
+still replaces only the cloud transport and never fakes native capability.
+
+The native bridge is the repository's own typed Pigeon plugin. Its iOS host
+maps Apple Foundation Models on iOS 26. The same Pigeon contract and fallback
+selection are wired on Android, but the current Android host deliberately
+reports `unsupportedDevice`: the ML Kit GenAI/Gemini Nano generation adapter
+is not implemented yet. Owning the bridge keeps capability and cancellation
+behavior explicit instead of hiding evolving native APIs behind a third-party
+pub package. See
+[ADR-0006](docs/decisions/0006-on-device-summary.md).
+
+Hardware claims are deliberately narrow. An iPhone 15 with A16 can verify the
+`unsupportedDevice` result and the cloud/no-key fallback, but not local text
+generation. Apple generation itself needs an eligible iPhone 15 Pro/Pro Max
+with A17 Pro or newer, iOS 26, Apple Intelligence enabled, and its model ready;
+Android will additionally need the ML Kit adapter plus a compatible on-device
+GenAI runtime (including supported Pixel 8+ configurations). Verification
+status: **not yet verified on an eligible device**; Android currently exercises
+fallback only.
+
 ## Decisions
 
 - [ADR-0001 · Monorepo layout and layer rules](docs/decisions/0001-monorepo-layout.md)
@@ -257,6 +287,7 @@ is used.
 - [ADR-0003 · Who owns the interface providers; Riverpod auto-retry off](docs/decisions/0003-provider-ownership.md)
 - [ADR-0004 · Storage on Drift, money as TEXT, migrations with a test](docs/decisions/0004-storage-and-migrations.md)
 - [ADR-0005 · The backtest fill model: a price path through a candle](docs/decisions/0005-backtest-fill-model.md)
+- [ADR-0006 · On-device backtest summaries behind SummaryProvider](docs/decisions/0006-on-device-summary.md)
 - [Backlog](docs/decisions/backlog.md): ideas go here, not into the code.
 
 ## Data sources and privacy

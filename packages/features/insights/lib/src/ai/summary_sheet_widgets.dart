@@ -21,6 +21,7 @@ class AiSummarySheetFrame extends StatelessWidget {
     required this.onStop,
     required this.onRetry,
     this.error,
+    this.onDevice = false,
     this.onOpenAiSettings,
     this.beforeProse = const [],
     this.afterProse = const [],
@@ -34,6 +35,7 @@ class AiSummarySheetFrame extends StatelessWidget {
   final String text;
   final bool running;
   final bool demo;
+  final bool onDevice;
   final Usage usage;
   final double costUsd;
   final AiError? error;
@@ -68,6 +70,14 @@ class AiSummarySheetFrame extends StatelessWidget {
                     child: _Badge(
                       key: const Key('ai_demo_badge'),
                       text: l10n.aiExampleBadge,
+                    ),
+                  ),
+                if (onDevice)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _Badge(
+                      key: const Key('ai_on_device_badge'),
+                      text: l10n.aiOnDeviceBadge,
                     ),
                   ),
               ],
@@ -105,7 +115,20 @@ class AiSummarySheetFrame extends StatelessWidget {
                   ],
                   const SizedBox(height: 20),
                   Text(l10n.aiDisclaimer, style: theme.textTheme.bodySmall),
-                  if (usage.total > 0)
+                  if (onDevice)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        l10n.aiOnDeviceCost,
+                        key: const Key('ai_on_device_cost'),
+                        style: TradeLensText.mono(
+                          size: 11,
+                          weight: FontWeight.w400,
+                          color: t.muted,
+                        ),
+                      ),
+                    )
+                  else if (usage.total > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
@@ -210,6 +233,7 @@ class _ErrorNote extends StatelessWidget {
       AiUnauthorized() => l10n.aiErrorUnauthorized,
       AiRateLimited() => l10n.aiErrorRateLimited,
       AiNetwork() => l10n.aiErrorNetwork,
+      AiOnDevice(:final reason) => l10n.aiErrorOnDevice(reason),
       AiRefused() => l10n.aiErrorRefused,
       AiBudgetExceeded() => l10n.aiErrorBudget,
       AiBadRequest() ||

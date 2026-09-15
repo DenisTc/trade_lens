@@ -16,16 +16,22 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/chart': {'core', 'features_shared'},
   'packages/sdui': {'core'},
   'packages/ai_insights': {'core', 'domain'},
+  'packages/on_device_llm': {},
   // The backtest engine reads candles and produces figures; nothing else.
   'packages/backtest': {'core', 'domain'},
   // The Decimal → double boundary and the chart theme live here, so the
   // pair screen and the backtest draw candles the same way.
-  'packages/features/shared': {'core', 'domain', 'chart'},
+  'packages/features/shared': {'core', 'domain', 'chart', 'on_device_llm'},
   'packages/features/markets': _featureDeps,
   'packages/features/portfolio': _featureDeps,
   // The only feature that speaks to the Claude client (through its
   // interfaces; the transport itself is overridden by the app).
-  'packages/features/insights': {..._featureDeps, 'ai_insights', 'backtest'},
+  'packages/features/insights': {
+    ..._featureDeps,
+    'ai_insights',
+    'backtest',
+    'on_device_llm',
+  },
   'packages/features/settings': _featureDeps,
   'packages/features/backtest': {..._featureDeps, 'backtest'},
   'tooling/arch_test': {},

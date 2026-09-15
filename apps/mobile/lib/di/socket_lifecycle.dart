@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:features_shared/features_shared.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tradelens/di/market_di.dart';
@@ -63,6 +64,7 @@ class _SocketLifecycleState extends ConsumerState<SocketLifecycle> {
     _suspendTimer = null;
     _shouldSuspend = false;
     _apply();
+    unawaited(ref.read(onDeviceAvailabilityProvider.notifier).refresh());
   }
 
   void _apply() {

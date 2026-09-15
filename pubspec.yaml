@@ -12,6 +12,7 @@ workspace:
   - packages/chart
   - packages/sdui
   - packages/ai_insights
+  - packages/on_device_llm
   - packages/backtest
   - packages/features/shared
   - packages/features/backtest
