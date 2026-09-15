@@ -27,6 +27,7 @@ const allowedInternalDependencies = <String, Set<String>>{
   // interfaces; the transport itself is overridden by the app).
   'packages/features/insights': {..._featureDeps, 'ai_insights'},
   'packages/features/settings': _featureDeps,
+  'packages/features/backtest': {..._featureDeps, 'backtest'},
   'tooling/arch_test': {},
   // The pull-request reviewer runs the app's own Claude client outside
   // the app, which is the point of keeping that package pure Dart.
