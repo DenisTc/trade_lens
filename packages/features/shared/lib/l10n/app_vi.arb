@@ -73,6 +73,7 @@
   "backtestTitle": "Kiểm thử lịch sử",
   "backtestGrid": "Lưới",
   "backtestDca": "DCA",
+  "backtestStale": "Tham số đã thay đổi — chạy lại",
   "backtestRun": "Chạy",
   "backtestCompare": "So sánh với bộ tham số khác",
   "backtestCompareOff": "Ẩn bộ thứ hai",

@@ -23,9 +23,19 @@ class BacktestScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Hold both setups for the entire screen lifetime, including loading.
+    final provider = backtestSetupsProvider(instrument.symbol);
+    final setups = ref.watch(provider);
     final l10n = context.l10n;
     final interval = ref.watch(selectedIntervalProvider);
     final candles = ref.watch(candlesProvider(instrument, interval));
+    final list = candles.value;
+    if (!setups.seeded && list != null && list.isNotEmpty) {
+      final seed = list.last.close;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) ref.read(provider.notifier).seedIfEmpty(seed);
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -45,6 +55,8 @@ class BacktestScreen extends ConsumerWidget {
         ),
         data: (list) => list.isEmpty
             ? Center(child: Text(l10n.backtestNoCandles))
+            : !setups.seeded
+            ? const SizedBox.shrink()
             : _Body(
                 instrument: instrument,
                 interval: interval,
@@ -75,10 +87,7 @@ class _Body extends ConsumerWidget {
     final locale = context.localeTag;
     final theme = Theme.of(context);
     final t = context.tokens;
-    // The starting price seeds the defaults once; the candles keep
-    // moving, the form must not.
-    final seed = candles.last.close;
-    final provider = backtestSetupsProvider(instrument.symbol, seed);
+    final provider = backtestSetupsProvider(instrument.symbol);
     final setups = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
 
@@ -103,6 +112,9 @@ class _Body extends ConsumerWidget {
           label: setups.compare ? l10n.backtestSetA : null,
           setup: setups.a,
           onChanged: notifier.updateA,
+          onRun: () => notifier.run(candles),
+          result: setups.resultA,
+          running: setups.runningA,
           candles: candles,
           interval: interval,
           localTime: localTime,
@@ -114,6 +126,9 @@ class _Body extends ConsumerWidget {
             label: l10n.backtestSetB,
             setup: setups.b,
             onChanged: notifier.updateB,
+            onRun: () => notifier.run(candles, second: true),
+            result: setups.resultB,
+            running: setups.runningB,
             candles: candles,
             interval: interval,
             localTime: localTime,
@@ -148,6 +163,9 @@ class _SetupCard extends StatefulWidget {
   const _SetupCard({
     required this.setup,
     required this.onChanged,
+    required this.onRun,
+    required this.result,
+    required this.running,
     required this.candles,
     required this.interval,
     required this.localTime,
@@ -158,6 +176,9 @@ class _SetupCard extends StatefulWidget {
 
   final BacktestSetup setup;
   final ValueChanged<BacktestSetup> onChanged;
+  final Future<String?> Function() onRun;
+  final BacktestRun? result;
+  final bool running;
   final List<Candle> candles;
   final Interval interval;
   final bool localTime;
@@ -169,22 +190,12 @@ class _SetupCard extends StatefulWidget {
 }
 
 class _SetupCardState extends State<_SetupCard> {
-  BacktestResult? _result;
   String? _badField;
 
-  void _run() {
-    switch (widget.setup.parse()) {
-      case Err(:final error):
-        setState(() {
-          _badField = error;
-          _result = null;
-        });
-      case Ok(:final value):
-        setState(() {
-          _badField = null;
-          _result = runSetup(widget.candles, value);
-        });
-    }
+  Future<void> _run() async {
+    if (widget.running) return;
+    final badField = await widget.onRun();
+    if (mounted) setState(() => _badField = badField);
   }
 
   @override
@@ -194,6 +205,7 @@ class _SetupCardState extends State<_SetupCard> {
     final t = context.tokens;
     final setup = widget.setup;
     final p = widget.prefix;
+    final stale = widget.result?.isStale(setup, widget.candles) ?? false;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: DecoratedBox(
@@ -258,17 +270,34 @@ class _SetupCardState extends State<_SetupCard> {
               const SizedBox(height: 12),
               FilledButton(
                 key: Key('bt_${p}_run'),
-                onPressed: _run,
-                child: Text(l10n.backtestRun),
+                onPressed: widget.running ? null : _run,
+                child: widget.running
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.backtestRun),
               ),
-              if (_result case final result?) ...[
+              if (widget.result case final run?) ...[
                 const SizedBox(height: 16),
-                _ResultView(
-                  key: Key('bt_${p}_result'),
-                  result: result,
-                  candles: widget.candles,
-                  interval: widget.interval,
-                  localTime: widget.localTime,
+                if (stale)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      l10n.backtestStale,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                Opacity(
+                  key: Key('bt_${p}_result_opacity'),
+                  opacity: stale ? 0.5 : 1,
+                  child: _ResultView(
+                    key: Key('bt_${p}_result'),
+                    result: run.result,
+                    candles: run.candles,
+                    interval: widget.interval,
+                    localTime: widget.localTime,
+                  ),
                 ),
               ],
             ],

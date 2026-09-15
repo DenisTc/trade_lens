@@ -73,6 +73,7 @@
   "backtestTitle": "Бэктест",
   "backtestGrid": "Сетка",
   "backtestDca": "DCA",
+  "backtestStale": "Параметры изменились — запустите снова",
   "backtestRun": "Запустить",
   "backtestCompare": "Сравнить с другим набором",
   "backtestCompareOff": "Скрыть второй набор",

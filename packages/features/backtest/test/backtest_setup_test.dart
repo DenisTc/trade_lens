@@ -31,14 +31,109 @@ void main() {
       ('upper', '90'),
       ('upper', '89'),
       ('levels', '1'),
+      ('levels', '201'),
+      ('levels', '2.5'),
       ('investment', '0'),
+      ('investment', '-1'),
       ('fee', '-0.1'),
+      ('fee', '100'),
+      ('fee', '101'),
     ]) {
       test('$field = $value names the invalid field', () {
         final setup = BacktestSetup.around(Decimal.fromInt(100))
             .with_(field, value);
 
         expect(setup.parse(), Err<Object, String>(field));
+      });
+    }
+  });
+
+  test('low-priced assets retain a ten percent range', () {
+    final setup = BacktestSetup.around(Decimal.parse('0.04'));
+    expect(setup['lower'], '0.036');
+    expect(setup['upper'], '0.044');
+    expect(setup.parse().valueOrNull, isA<GridParams>());
+  });
+
+  group('decimal separators', () {
+    for (final (input, expected) in [
+      ('1,5', '1.5'),
+      ('1.5', '1.5'),
+      ('1000', '1000'),
+    ]) {
+      test('accepts $input', () {
+        final parsed = BacktestSetup.around(Decimal.fromInt(100))
+            .with_('investment', input)
+            .parse();
+        expect(
+          (parsed.valueOrNull! as GridParams).investment,
+          Decimal.parse(expected),
+        );
+      });
+    }
+    for (final input in [
+      '1,000.5',
+      '1.000,5',
+      '1,2,3',
+      '1.2.3',
+      '1 000',
+      ' 1000 ',
+      '1\u00a0000',
+    ]) {
+      test('rejects ambiguous or grouped $input', () {
+        expect(
+          BacktestSetup.around(Decimal.fromInt(100))
+              .with_('investment', input)
+              .parse(),
+          const Err<Object, String>('investment'),
+        );
+      });
+    }
+  });
+
+  group('DCA validation', () {
+    for (final (field, value) in [
+      ('fee', '100'),
+      ('fee', '101'),
+      ('fee', '-1'),
+      ('takeProfit', '0'),
+      ('takeProfit', '-1'),
+      ('takeProfit', '1000.01'),
+      ('step', '0'),
+      ('step', '-1'),
+      ('step', '100.01'),
+      ('safetyOrders', '-1'),
+      ('safetyOrders', '51'),
+      ('safetyOrders', '1.5'),
+      ('base', '0'),
+      ('base', '-1'),
+    ]) {
+      test('$field = $value names the invalid field', () {
+        expect(
+          BacktestSetup.around(
+            Decimal.fromInt(100),
+            kind: BotKind.dca,
+          ).with_(field, value).parse(),
+          Err<Object, String>(field),
+        );
+      });
+    }
+    for (final (field, value) in [
+      ('fee', '0'),
+      ('fee', '99.99'),
+      ('takeProfit', '1000'),
+      ('step', '100'),
+      ('safetyOrders', '0'),
+      ('safetyOrders', '50'),
+    ]) {
+      test('accepts boundary $field = $value', () {
+        expect(
+          BacktestSetup.around(
+            Decimal.fromInt(100),
+            kind: BotKind.dca,
+          ).with_(field, value).parse().valueOrNull,
+          isA<DcaParams>(),
+        );
       });
     }
   });

@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:backtest/backtest.dart';
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
@@ -17,12 +19,14 @@ final class BacktestSetup {
   /// Sensible starting values around [price]: a grid ±10 % with ten
   /// levels, a DCA with five safety orders two percent apart.
   factory BacktestSetup.around(Decimal price, {BotKind kind = BotKind.grid}) {
-    final ten = (price * Decimal.parse('0.1')).round(scale: 2);
+    final ten = (price / Decimal.fromInt(10)).toDecimal(
+      scaleOnInfinitePrecision: 8,
+    );
     return BacktestSetup(
       kind: kind,
       fields: {
-        'lower': '${(price - ten).round(scale: 2)}',
-        'upper': '${(price + ten).round(scale: 2)}',
+        'lower': _priceText(price - ten),
+        'upper': _priceText(price + ten),
         'levels': '10',
         'investment': '1000',
         'fee': '0.1',
@@ -50,7 +54,7 @@ final class BacktestSetup {
   /// be read as a positive number (or a sensible count).
   Result<Object, String> parse() {
     Decimal? num(String f) {
-      final v = Decimal.tryParse(this[f].trim().replaceAll(',', '.'));
+      final v = parseBacktestNumber(this[f]);
       return v == null || v < Decimal.zero ? null : v;
     }
 
@@ -60,7 +64,7 @@ final class BacktestSetup {
     }
 
     final fee = num('fee');
-    if (fee == null) return const Err('fee');
+    if (fee == null || fee >= Decimal.fromInt(100)) return const Err('fee');
     final feeRate = (fee / Decimal.fromInt(100)).toDecimal(
       scaleOnInfinitePrecision: 8,
     );
@@ -98,8 +102,14 @@ final class BacktestSetup {
         if (safetyOrders == null || safetyOrders > 50) {
           return const Err('safetyOrders');
         }
-        if (step == null || step == Decimal.zero) return const Err('step');
-        if (tp == null || tp == Decimal.zero) return const Err('takeProfit');
+        if (step == null ||
+            step == Decimal.zero ||
+            step > Decimal.fromInt(100)) {
+          return const Err('step');
+        }
+        if (tp == null || tp == Decimal.zero || tp > Decimal.fromInt(1000)) {
+          return const Err('takeProfit');
+        }
         return Ok(
           DcaParams(
             baseOrder: base,
@@ -114,33 +124,163 @@ final class BacktestSetup {
   }
 }
 
-/// Runs [params] over [candles], oldest first.
-BacktestResult runSetup(List<Candle> candles, Object params) =>
-    switch (params) {
-      GridParams() => runGrid(candles, params),
-      DcaParams() => runDca(candles, params),
-      _ => throw ArgumentError.value(params, 'params'),
-    };
+/// A decimal comma is accepted only on its own; grouping is never stripped.
+Decimal? parseBacktestNumber(String text) {
+  final commas = ','.allMatches(text).length;
+  final dots = '.'.allMatches(text).length;
+  if (commas + dots > 1 || RegExp(r'\s').hasMatch(text)) return null;
+  return Decimal.tryParse(commas == 1 ? text.replaceFirst(',', '.') : text);
+}
 
-/// The form's state for one pair: two sets, so that a second one can be
-/// compared with the first, and whether the second is shown. Lives as
-/// long as the screen; nothing is persisted.
+String _priceText(Decimal price) {
+  final text = price.round(scale: 8).toString();
+  return text.contains('.')
+      ? text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')
+      : text;
+}
+
+/// Runs [params] over the newest 5000 candles, oldest first, off the UI isolate.
+Future<BacktestResult> runSetup(List<Candle> candles, Object params) {
+  final input = _latestCandles(candles);
+  return Isolate.run(
+    () => switch (params) {
+      GridParams() => runGrid(input, params),
+      DcaParams() => runDca(input, params),
+      _ => throw ArgumentError.value(params, 'params'),
+    },
+  );
+}
+
+List<Candle> _latestCandles(List<Candle> candles) => List.unmodifiable(
+  candles.skip(candles.length > 5000 ? candles.length - 5000 : 0),
+);
+
+/// The parameters and candle window belonging to a completed run.
+@immutable
+final class BacktestRun {
+  BacktestRun({
+    required this.result,
+    required BacktestSetup setup,
+    required this.sourceCandles,
+    required this.candles,
+    required this.sourceLength,
+  }) : setup = BacktestSetup(
+         kind: setup.kind,
+         fields: Map.unmodifiable(setup.fields),
+       );
+
+  final BacktestResult result;
+  final BacktestSetup setup;
+  final List<Candle> sourceCandles;
+  final int sourceLength;
+  final List<Candle> candles;
+
+  bool isStale(BacktestSetup current, List<Candle> candles) =>
+      !identical(sourceCandles, candles) ||
+      sourceLength != candles.length ||
+      setup.kind != current.kind ||
+      setup.fields.length != current.fields.length ||
+      setup.fields.entries.any((entry) => current[entry.key] != entry.value);
+}
+
+@immutable
+final class BacktestSetupsState {
+  const BacktestSetupsState({
+    this.a = const BacktestSetup(kind: BotKind.grid, fields: {}),
+    this.b = const BacktestSetup(kind: BotKind.dca, fields: {}),
+    this.seeded = false,
+    this.compare = false,
+    this.resultA,
+    this.resultB,
+    this.runningA = false,
+    this.runningB = false,
+  });
+
+  final BacktestSetup a;
+  final BacktestSetup b;
+  final bool seeded;
+  final bool compare;
+  final BacktestRun? resultA;
+  final BacktestRun? resultB;
+  final bool runningA;
+  final bool runningB;
+
+  BacktestSetupsState copyWith({
+    BacktestSetup? a,
+    BacktestSetup? b,
+    bool? seeded,
+    bool? compare,
+    BacktestRun? resultA,
+    BacktestRun? resultB,
+    bool? runningA,
+    bool? runningB,
+  }) => BacktestSetupsState(
+    a: a ?? this.a,
+    b: b ?? this.b,
+    seeded: seeded ?? this.seeded,
+    compare: compare ?? this.compare,
+    resultA: resultA ?? this.resultA,
+    resultB: resultB ?? this.resultB,
+    runningA: runningA ?? this.runningA,
+    runningB: runningB ?? this.runningB,
+  );
+}
+
+/// Both cards share this symbol-keyed state. The screen holds its subscription
+/// even when a card is scrolled away or candles are loading.
 @riverpod
 class BacktestSetups extends _$BacktestSetups {
   @override
-  ({BacktestSetup a, BacktestSetup b, bool compare}) build(
-    String symbol,
-    Decimal price,
-  ) => (
-    a: BacktestSetup.around(price),
-    b: BacktestSetup.around(price, kind: BotKind.dca),
-    compare: false,
-  );
+  BacktestSetupsState build(String symbol) => const BacktestSetupsState();
 
-  void updateA(BacktestSetup a) =>
-      state = (a: a, b: state.b, compare: state.compare);
-  void updateB(BacktestSetup b) =>
-      state = (a: state.a, b: b, compare: state.compare);
-  void toggleCompare() =>
-      state = (a: state.a, b: state.b, compare: !state.compare);
+  void seedIfEmpty(Decimal price) {
+    if (state.seeded) return;
+    state = state.copyWith(
+      a: BacktestSetup.around(price),
+      b: BacktestSetup.around(price, kind: BotKind.dca),
+      seeded: true,
+    );
+  }
+
+  void updateA(BacktestSetup a) => state = state.copyWith(a: a);
+  void updateB(BacktestSetup b) => state = state.copyWith(b: b);
+  void toggleCompare() => state = state.copyWith(compare: !state.compare);
+
+  Future<String?> run(List<Candle> candles, {bool second = false}) async {
+    if (second ? state.runningB : state.runningA) return null;
+    final current = second ? state.b : state.a;
+    final setup = BacktestSetup(
+      kind: current.kind,
+      fields: Map.unmodifiable(current.fields),
+    );
+    final parsed = setup.parse();
+    if (parsed case Err(:final error)) return error;
+    final params = parsed.valueOrNull!;
+    // Capture everything before the await: edits and ticks during a run must
+    // make the completed result stale as well.
+    final input = _latestCandles(candles);
+    final sourceLength = candles.length;
+    _setRun(second, running: true);
+    try {
+      final result = await runSetup(input, params);
+      if (!ref.mounted) return null;
+      final snapshot = BacktestRun(
+        result: result,
+        setup: setup,
+        sourceCandles: candles,
+        candles: input,
+        sourceLength: sourceLength,
+      );
+      _setRun(second, running: false, result: snapshot);
+    } finally {
+      if (ref.mounted) _setRun(second, running: false);
+    }
+    return null;
+  }
+
+  void _setRun(bool second, {required bool running, BacktestRun? result}) {
+    state = second
+        ? state.copyWith(runningB: running, resultB: result)
+        : state.copyWith(runningA: running, resultA: result);
+  }
 }

@@ -81,6 +81,7 @@
   "backtestTitle": "Backtest",
   "backtestGrid": "Grid",
   "backtestDca": "DCA",
+  "backtestStale": "Parameters changed — run again",
   "backtestRun": "Run",
   "backtestCompare": "Compare with another set",
   "backtestCompareOff": "Hide the second set",
