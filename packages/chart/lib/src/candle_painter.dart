@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:chart/src/axes.dart';
 import 'package:chart/src/chart_theme.dart';
 import 'package:chart/src/indicators.dart';
+import 'package:chart/src/markers.dart';
 import 'package:chart/src/model.dart';
 import 'package:chart/src/series.dart';
 import 'package:chart/src/viewport.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 /// Geometry shared by the candle and crosshair painters so both map
@@ -91,6 +93,7 @@ final class CandlePainter extends CustomPainter {
     required this.interval,
     required this.labels,
     required this.overlays,
+    this.markers = const [],
     this.showVolume = true,
     this.localTime = true,
   });
@@ -101,6 +104,7 @@ final class CandlePainter extends CustomPainter {
   final ChartInterval interval;
   final LabelCache labels;
   final OverlaySet overlays;
+  final List<ChartMarker> markers;
   final bool showVolume;
   final bool localTime;
 
@@ -122,6 +126,7 @@ final class CandlePainter extends CustomPainter {
       ..clipRect(geometry.plotRect);
     _paintCandles(canvas, geometry);
     _paintOverlays(canvas, geometry);
+    _paintMarkers(canvas, geometry);
     canvas.restore();
     _paintTimeAxis(canvas, geometry);
   }
@@ -210,6 +215,58 @@ final class CandlePainter extends CustomPainter {
     }
   }
 
+  /// Triangles on the candles they belong to: up and below the price for
+  /// a buy, down and above it for a sell, so the marker never hides the
+  /// fill it marks. A marker whose candle is not in the series is not
+  /// drawn.
+  void _paintMarkers(Canvas canvas, PlotGeometry g) {
+    if (markers.isEmpty) return;
+    final (start, end) = viewport.visibleRange(g.candles.length, g.plotWidth);
+    final size = math.max(4, math.min(8, viewport.candleWidth * 0.9));
+    final buy = Paint()..color = theme.up;
+    final sell = Paint()..color = theme.down;
+    for (final m in markers) {
+      final i = _indexOf(g.candles, m.at);
+      if (i == null || i < start - 1 || i > end) continue;
+      final x = g.xOf(i);
+      final y = g.yOf(m.price);
+      final path = Path();
+      if (m.up) {
+        final base = y + size * 1.5;
+        path
+          ..moveTo(x, base - size)
+          ..lineTo(x - size / 2, base)
+          ..lineTo(x + size / 2, base)
+          ..close();
+      } else {
+        final base = y - size * 1.5;
+        path
+          ..moveTo(x, base + size)
+          ..lineTo(x - size / 2, base)
+          ..lineTo(x + size / 2, base)
+          ..close();
+      }
+      canvas.drawPath(path, m.up ? buy : sell);
+    }
+  }
+
+  /// Binary search by open time; the series is sorted.
+  static int? _indexOf(List<ChartCandle> candles, DateTime at) {
+    var lo = 0;
+    var hi = candles.length - 1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      final t = candles[mid].openTime;
+      if (t == at) return mid;
+      if (t.isBefore(at)) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return null;
+  }
+
   void _paintPriceAxis(Canvas canvas, PlotGeometry g) {
     final r = g.range;
     if (r == null) return;
@@ -256,6 +313,7 @@ final class CandlePainter extends CustomPainter {
       old.theme != theme ||
       old.interval != interval ||
       !identical(old.overlays, overlays) ||
+      !listEquals(old.markers, markers) ||
       old.showVolume != showVolume ||
       old.localTime != localTime;
 }

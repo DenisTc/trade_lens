@@ -138,4 +138,37 @@ void main() {
     expect(after.shouldRepaint(before!), isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('markers change the painter; a marker off the series is fine', (
+    tester,
+  ) async {
+    final series = CandleSeries.of([
+      for (var i = 0; i < 30; i++) candle(i, 100 + (i % 5).toDouble()),
+    ]);
+    Widget chart(List<ChartMarker> markers) => MaterialApp(
+      home: SizedBox(
+        width: 300,
+        height: 200,
+        child: CandleChart(
+          series: series,
+          interval: ChartInterval.m1,
+          markers: markers,
+        ),
+      ),
+    );
+    await tester.pumpWidget(chart(const []));
+    final paint = find.byKey(const Key('candle_chart_paint'));
+    final before = tester.widget<CustomPaint>(paint).painter!;
+
+    await tester.pumpWidget(
+      chart([
+        ChartMarker(at: series[3].openTime, price: 101, up: true),
+        ChartMarker(at: DateTime.utc(1999), price: 1, up: false),
+      ]),
+    );
+    final after = tester.widget<CustomPaint>(paint).painter!;
+
+    expect(after.shouldRepaint(before), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }

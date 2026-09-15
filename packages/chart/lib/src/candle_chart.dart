@@ -5,6 +5,7 @@ import 'package:chart/src/candle_painter.dart';
 import 'package:chart/src/chart_theme.dart';
 import 'package:chart/src/crosshair_painter.dart';
 import 'package:chart/src/indicators.dart';
+import 'package:chart/src/markers.dart';
 import 'package:chart/src/model.dart';
 import 'package:chart/src/series.dart';
 import 'package:chart/src/viewport.dart';
@@ -25,6 +26,7 @@ class CandleChart extends StatefulWidget {
     required this.interval,
     super.key,
     this.overlays = const [],
+    this.markers = const [],
     this.showVolume = true,
     this.onCrosshair,
     this.onReachStart,
@@ -39,6 +41,9 @@ class CandleChart extends StatefulWidget {
 
   /// Moving averages drawn over the candles, in this order.
   final List<MovingAverage> overlays;
+
+  /// Trades drawn on their candles.
+  final List<ChartMarker> markers;
 
   /// Called when a pan brings the oldest candles near the left edge: the
   /// owner may prepend history and returns when it is done or gave up.
@@ -203,6 +208,7 @@ class CandleChartState extends State<CandleChart> {
                       interval: widget.interval,
                       labels: _labels!,
                       overlays: overlays,
+                      markers: widget.markers,
                       showVolume: widget.showVolume,
                       localTime: widget.localTime,
                     ),
