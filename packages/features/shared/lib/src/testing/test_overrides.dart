@@ -3,9 +3,11 @@ import 'package:features_shared/src/providers/ai.dart';
 import 'package:features_shared/src/providers/config.dart';
 import 'package:features_shared/src/providers/error_reporter.dart';
 import 'package:features_shared/src/providers/market_data_source.dart';
+import 'package:features_shared/src/providers/on_device.dart';
 import 'package:features_shared/src/providers/quotes.dart';
 import 'package:features_shared/src/providers/storage.dart';
 import 'package:features_shared/src/testing/fake_storage.dart';
+import 'package:on_device_llm/on_device_llm.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 /// Overrides that bind every interface provider to a fake, for widget and
@@ -22,6 +24,7 @@ List<Override> fakeOverrides({
   InsightsConfigSource? config,
   SecretStore? secrets,
   ErrorReporter? errorReporter,
+  OnDeviceLlmApi? onDeviceLlm,
 
   /// Keep-alive grace of quote providers; zero by default so disposal is
   /// observable right away.
@@ -40,8 +43,33 @@ List<Override> fakeOverrides({
     config ?? FakeInsightsConfigSource(),
   ),
   secretStoreProvider.overrideWithValue(secrets ?? FakeSecretStore()),
+  onDeviceLlmProvider.overrideWithValue(
+    onDeviceLlm ?? const _UnsupportedOnDeviceLlm(),
+  ),
   if (errorReporter != null)
     errorReporterProvider.overrideWithValue(errorReporter),
   // No keep-alive grace in tests: disposal is observable right away.
   quoteKeepAliveProvider.overrideWithValue(quoteKeepAlive),
 ];
+
+final class _UnsupportedOnDeviceLlm implements OnDeviceLlmApi {
+  const _UnsupportedOnDeviceLlm();
+
+  @override
+  Future<OnDeviceAvailability> availability() async =>
+      OnDeviceAvailability.unsupportedDevice;
+
+  @override
+  Future<String> generate({
+    required String system,
+    required String prompt,
+    required String languageCode,
+    required int maxOutputChars,
+  }) => throw UnsupportedError('on-device generation is unavailable in tests');
+
+  @override
+  Future<void> cancel() async {}
+
+  @override
+  Future<String> runtimeName() async => 'none';
+}

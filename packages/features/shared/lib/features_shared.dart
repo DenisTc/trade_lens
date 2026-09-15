@@ -6,6 +6,9 @@
 /// import `data_market`, `ws_client` or any other implementation package.
 library;
 
+export 'package:on_device_llm/on_device_llm.dart'
+    show OnDeviceAvailability, OnDeviceLlmApi;
+
 export 'l10n/generated/shared_localizations.dart';
 export 'src/chart/chart_mapping.dart';
 export 'src/chart/chart_theme.dart';
@@ -19,6 +22,7 @@ export 'src/providers/connection.dart';
 export 'src/providers/error_reporter.dart';
 export 'src/providers/locale.dart';
 export 'src/providers/market_data_source.dart';
+export 'src/providers/on_device.dart';
 export 'src/providers/pair.dart';
 export 'src/providers/portfolio.dart';
 export 'src/providers/quotes.dart';

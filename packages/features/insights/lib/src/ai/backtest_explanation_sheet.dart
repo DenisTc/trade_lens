@@ -66,11 +66,19 @@ class _BacktestExplanationSheetState
 
   @override
   Widget build(BuildContext context) {
-    final readiness = ref.watch(aiReadinessProvider);
+    final cloudReadiness = ref.watch(aiReadinessProvider);
+    final onDeviceAvailable =
+        ref.watch(onDeviceAvailabilityProvider).value ==
+        OnDeviceAvailability.available;
+    final readiness = onDeviceAvailable ? AiReadiness.ready : cloudReadiness;
     final state = ref.watch(backtestExplanationControllerProvider(_key));
     if (state.isIdle && readiness == AiReadiness.ready) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || ref.read(aiReadinessProvider) != AiReadiness.ready) {
+        final stillReady =
+            ref.read(onDeviceAvailabilityProvider).value ==
+                OnDeviceAvailability.available ||
+            ref.read(aiReadinessProvider) == AiReadiness.ready;
+        if (!mounted || !stillReady) {
           return;
         }
         if (ref.read(backtestExplanationControllerProvider(_key)).isIdle) {
@@ -89,6 +97,7 @@ class _BacktestExplanationSheetState
       running:
           state.running || (state.isIdle && readiness == AiReadiness.ready),
       demo: state.demo,
+      onDevice: state.onDevice,
       usage: state.usage,
       costUsd: state.costUsd,
       error: state.error,

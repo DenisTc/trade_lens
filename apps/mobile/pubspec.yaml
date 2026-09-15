@@ -30,6 +30,7 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^3.4.3
   go_router: ^18.0.1
+  on_device_llm:
   package_info_plus: ^10.2.1
   riverpod_annotation: ^4.0.7
   sdui:

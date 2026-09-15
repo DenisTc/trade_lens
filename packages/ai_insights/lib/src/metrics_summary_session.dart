@@ -28,6 +28,11 @@ String metricsSummarySystemPrompt(String languageCode) =>
     'There is no trailing, stop-loss or futures modeling. '
     'This is an estimate over historical candles, not a forecast.';
 
+/// User message shared by cloud and on-device metrics summary runtimes.
+String metricsSummaryUserPrompt(Map<String, Object?> metrics) =>
+    'Explain these computed backtest metrics.\n```json\n'
+    '${jsonEncode(metrics)}\n```';
+
 /// One cloud Messages request with prose only: no tools or structured call.
 final class MetricsSummarySession implements SummaryProvider {
   MetricsSummarySession({
@@ -70,11 +75,7 @@ final class MetricsSummarySession implements SummaryProvider {
         'stream': true,
         'system': metricsSummarySystemPrompt(languageCode),
         'messages': [
-          {
-            'role': 'user',
-            'content':
-                'Explain these computed backtest metrics.\n```json\n${jsonEncode(metrics)}\n```',
-          },
+          {'role': 'user', 'content': metricsSummaryUserPrompt(metrics)},
         ],
       },
       apiKey: apiKey,

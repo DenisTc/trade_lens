@@ -1,7 +1,8 @@
 # on_device_llm
 
-Stage 1 of TradeLens v3: an injectable Dart API and a Pigeon bridge for local
-text generation. The mobile app does not depend on this package yet.
+TradeLens v3's injectable Dart API and Pigeon bridge for local text generation.
+The mobile app wires this package through `SummaryProvider`: local first when
+available, otherwise the existing cloud or setup-hint path.
 
 ## Platforms
 
@@ -33,29 +34,30 @@ if (await llm.availability() == OnDeviceAvailability.available) {
 Inject an implementation of `OnDeviceLlmApi` in consumers. Package tests inject
 a fake generated host API through `OnDeviceLlm(hostApi: ...)`.
 
-The iOS implementation checks model availability and language support for each
-request, creates a fresh session, asks for the requested language/length, and
-caps the returned text at `maxOutputChars` Swift characters (grapheme clusters).
+The iOS implementation exposes model availability separately and creates a
+fresh session for each request. The Dart adapter places the requested language
+in the system instructions. The host caps returned text at `maxOutputChars`
+Swift characters (grapheme clusters).
 The cap can truncate sentences or structured text; stage 1 returns plain text
 and does not guarantee valid JSON. It is an output cap, not a generation token
 budget. Calls with a nonpositive limit are rejected before reaching the host.
 
-Only one generation may run at a time per plugin instance. A concurrent request
-fails with `busy`. `cancel()` cancels the stored task; the pending future receives
-`cancelled` when the task unwinds. Repeated cancellation is harmless. A new call
+Only one generation may run at a time per plugin instance. The current iOS host
+rejects an invalid or concurrent request with `generation_failed`. `cancel()`
+cancels the stored task; cancellation also currently surfaces as
+`generation_failed` to the Dart adapter, which recognizes caller cancellation
+through its own `CancelSignal`. Repeated cancellation is harmless. A new call
 may start after the previous future settles. No prompts or generated text are
 logged or sent to a cloud provider by this package.
 
 `runtimeName()` describes the compiled runtime, independently of model readiness:
 `Apple Foundation Models` on iOS 26+ with the framework present, otherwise `none`.
 
-Native failures become `PlatformException`s. iOS codes include `unsupported_os`,
-`unsupported_device`, `disabled`, `model_not_ready`, `invalid_request`,
-`unsupported_language`, `busy`, `cancelled`, `context_window_exceeded`,
-`guardrail_violation`, `unsupported_guide`, `decoding_failure`, `rate_limited`,
-`refusal`, and `generation_failed`. Swift uses Pigeon's `Error`-conforming carrier
-to transport the mapped `FlutterError` code/message without adding a global
-retroactive conformance to Flutter's type.
+Native failures become `PlatformException`s. Availability is represented by the
+typed enum; generation failures from the current iOS host use
+`generation_failed`, while Android uses `unsupported`. Swift uses Pigeon's
+`Error`-conforming carrier to transport the `FlutterError` code/message without
+adding a global retroactive conformance to Flutter's type.
 
 ## Regenerate and verify
 
@@ -75,5 +77,5 @@ fvm exec melos run analyze
 
 Generated Dart, Swift, and Kotlin files must be regenerated together using the
 version pinned in the workspace lockfile. Runtime generation still requires a
-compatible physical device. App integration and the simulator app build belong
-to stage 2.
+compatible physical device. App integration is complete; Android ML Kit
+generation and eligible-device verification remain pending.
