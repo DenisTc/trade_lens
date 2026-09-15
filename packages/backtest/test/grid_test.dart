@@ -15,6 +15,48 @@ void main() {
     feeRate: Decimal.zero,
   );
 
+  for (final field in ['open', 'low', 'high', 'close']) {
+    for (final value in ['0', '-1']) {
+      test('skips $field = $value before and during a run, marking equity', () {
+        final bad = c(
+          0,
+          field == 'open' ? value : '100',
+          field == 'high' ? value : '110',
+          field == 'low' ? value : '80',
+          field == 'close' ? value : '100',
+        );
+        final first = c(1, '100', '100', '100', '100');
+        final middle = bad.copyWith(
+          openTime: c(2, '100', '100', '100', '100').openTime,
+        );
+        final last = c(3, '100', '106', '100', '106');
+        final result = runGrid([bad, first, middle, last], params);
+
+        expect(result.trades.first.at, first.openTime);
+        expect(
+          result.trades.where(
+            (t) => t.at == bad.openTime || t.at == middle.openTime,
+          ),
+          isEmpty,
+        );
+        expect(result.trades.where((t) => t.at == last.openTime), isNotEmpty);
+        expect(result.equity, hasLength(5));
+        expect(result.equity[1].equity, params.investment);
+        expect(result.equity.skip(1).map((p) => p.at), [
+          bad.openTime,
+          first.openTime,
+          middle.openTime,
+          last.openTime,
+        ]);
+
+        final onlyBad = runGrid([bad], params);
+        expect(onlyBad.trades, isEmpty);
+        expect(onlyBad.finalEquity, params.investment);
+        expect(onlyBad.equity, hasLength(2));
+      });
+    }
+  }
+
   test('levels are evenly spaced, ascending', () {
     expect(params.prices.map((p) => '$p'), ['90', '95', '100', '105', '110']);
   });

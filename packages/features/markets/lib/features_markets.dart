@@ -2,7 +2,6 @@
 /// 24h change, sparkline and search.
 library;
 
-export 'src/chart_mapping.dart';
 export 'src/connection_dot.dart';
 export 'src/markets_screen.dart';
 export 'src/order_book_view.dart';

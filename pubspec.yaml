@@ -14,6 +14,7 @@ workspace:
   - packages/ai_insights
   - packages/backtest
   - packages/features/shared
+  - packages/features/backtest
   - packages/features/markets
   - packages/features/portfolio
   - packages/features/insights

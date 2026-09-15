@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
-import 'package:features_markets/src/chart_mapping.dart';
 import 'package:features_markets/src/connection_dot.dart';
 import 'package:features_markets/src/order_book_view.dart';
 import 'package:features_markets/src/pair_tile.dart';
@@ -21,6 +20,7 @@ class PairScreen extends ConsumerWidget {
     super.key,
     this.localTime = true,
     this.onMoveSummary,
+    this.onBacktest,
   });
 
   final Instrument instrument;
@@ -29,6 +29,9 @@ class PairScreen extends ConsumerWidget {
   /// build without the feature). The feature itself lives elsewhere, so
   /// this package never depends on the Claude client.
   final VoidCallback? onMoveSummary;
+
+  /// Opens the backtest for this pair; null hides the button.
+  final VoidCallback? onBacktest;
 
   /// Time axis in local time; golden tests pass false.
   final bool localTime;
@@ -63,14 +66,32 @@ class PairScreen extends ConsumerWidget {
         ),
         children: [
           _PriceHeader(instrument: instrument),
-          if (onMoveSummary != null)
+          if (onMoveSummary != null || onBacktest != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: OutlinedButton.icon(
-                key: const Key('move_summary'),
-                onPressed: onMoveSummary,
-                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                label: Text(l10n.aiSummaryTitle),
+              child: Row(
+                children: [
+                  if (onMoveSummary != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('move_summary'),
+                        onPressed: onMoveSummary,
+                        icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                        label: Text(l10n.aiSummaryTitle),
+                      ),
+                    ),
+                  if (onMoveSummary != null && onBacktest != null)
+                    const SizedBox(width: 8),
+                  if (onBacktest != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('backtest_button'),
+                        onPressed: onBacktest,
+                        icon: const Icon(Icons.science_outlined, size: 18),
+                        label: Text(l10n.backtestButton),
+                      ),
+                    ),
+                ],
               ),
             ),
           Padding(
@@ -173,20 +194,6 @@ class PairScreen extends ConsumerWidget {
 
 /// Chart colours from the tokens: rise and fall, accent crosshair with an
 /// accent price tag, hairline grid, mono axis labels.
-CandleChartTheme tradeLensChartTheme(BuildContext context) {
-  final t = context.tokens;
-  return CandleChartTheme(
-    up: t.up,
-    down: t.down,
-    grid: t.line,
-    axisText: t.muted,
-    crosshair: t.accent,
-    crosshairLabelBackground: t.accent,
-    crosshairLabelText: t.onAccent,
-    fontFamily: TradeLensFonts.mono,
-  );
-}
-
 /// The two averages the toggle turns on: the fast one in the accent, the
 /// slow one muted, so they read apart from the candles and each other.
 List<MovingAverage> chartOverlays(BuildContext context) {

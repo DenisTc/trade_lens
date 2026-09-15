@@ -16,6 +16,7 @@ dependencies:
   data_local:
   data_market:
   domain:
+  features_backtest:
   features_insights:
   features_markets:
   features_portfolio:

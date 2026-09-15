@@ -54,6 +54,7 @@ class PairScreen extends ConsumerWidget {
                   ),
                 )
               : null,
+          onBacktest: () => context.push(AppRoutes.backtestPath(symbol)),
         );
       },
     );

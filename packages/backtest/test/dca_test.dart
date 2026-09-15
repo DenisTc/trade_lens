@@ -14,6 +14,67 @@ void main() {
     feeRate: Decimal.zero,
   );
 
+  for (final field in ['open', 'low', 'high', 'close']) {
+    for (final value in ['0', '-1']) {
+      test('skips $field = $value before and during a run, marking equity', () {
+        final bad = c(
+          0,
+          field == 'open' ? value : '100',
+          field == 'high' ? value : '110',
+          field == 'low' ? value : '80',
+          field == 'close' ? value : '100',
+        );
+        final first = c(1, '100', '100', '100', '100');
+        final middle = bad.copyWith(
+          openTime: c(2, '100', '100', '100', '100').openTime,
+        );
+        final last = c(3, '100', '106', '100', '106');
+        final result = runDca([bad, first, middle, last], params);
+
+        expect(result.trades.first.at, first.openTime);
+        expect(
+          result.trades.where(
+            (t) => t.at == bad.openTime || t.at == middle.openTime,
+          ),
+          isEmpty,
+        );
+        expect(result.trades.where((t) => t.at == last.openTime), isNotEmpty);
+        expect(result.equity, hasLength(5));
+        expect(result.equity[1].equity, params.capital);
+        expect(result.equity.skip(1).map((p) => p.at), [
+          bad.openTime,
+          first.openTime,
+          middle.openTime,
+          last.openTime,
+        ]);
+
+        final onlyBad = runDca([bad], params);
+        expect(onlyBad.trades, isEmpty);
+        expect(onlyBad.finalEquity, params.capital);
+        expect(onlyBad.equity, hasLength(2));
+      });
+    }
+  }
+
+  for (final fee in ['1', '-1']) {
+    test('a fee of $fee never divides by a zero fill denominator', () {
+      final result = runDca(
+        [c(0, '100', '100', '100', '100')],
+        DcaParams(
+          baseOrder: d('100'),
+          safetyOrder: d('100'),
+          safetyOrders: 0,
+          stepPct: d('10'),
+          takeProfitPct: d('5'),
+          feeRate: d(fee),
+        ),
+      );
+      expect(result.trades, isEmpty);
+      expect(result.equity, hasLength(2));
+      expect(result.finalEquity, d('100'));
+    });
+  }
+
   test('capital is the base order plus every safety order', () {
     expect(params.capital, d('300'));
     final doubling = DcaParams(

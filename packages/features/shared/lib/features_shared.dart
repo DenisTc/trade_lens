@@ -7,6 +7,8 @@
 library;
 
 export 'l10n/generated/shared_localizations.dart';
+export 'src/chart/chart_mapping.dart';
+export 'src/chart/chart_theme.dart';
 export 'src/format.dart';
 export 'src/l10n_ext.dart';
 export 'src/providers/ai.dart';
