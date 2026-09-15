@@ -23,6 +23,7 @@ Candle _c(int i) => Candle(
 Future<FakeMarketDataSource> _pumpScreen(
   WidgetTester tester, {
   BacktestRunner? runner,
+  void Function(BacktestMetrics)? onExplain,
 }) async {
   tester.view
     ..physicalSize = const Size(800, 2400)
@@ -40,7 +41,11 @@ Future<FakeMarketDataSource> _pumpScreen(
           backtestSetupsProvider(btc.symbol)
               .overrideWith(() => BacktestSetups(runner: runner)),
       ],
-      home: BacktestScreen(instrument: btc, localTime: false),
+      home: BacktestScreen(
+        instrument: btc,
+        localTime: false,
+        onExplain: onExplain,
+      ),
     ),
   );
   await tester.pump();
@@ -50,6 +55,56 @@ Future<FakeMarketDataSource> _pumpScreen(
 }
 
 void main() {
+  testWidgets(
+    'explain uses each completed run snapshot after edits and ticks',
+    (tester) async {
+      final explained = <BacktestMetrics>[];
+      final source = await _pumpScreen(tester, onExplain: explained.add);
+      expect(find.byKey(const Key('bt_a_explain')), findsNothing);
+      await _run(tester, 'a');
+      final runA = _state(tester).resultA! as BacktestRun;
+      await tester.enterText(find.byKey(const Key('bt_a_investment')), '2500');
+      source.emitCandle(
+        source.instrumentFor(defaultAssets.first, 'USDT'),
+        _c(59).copyWith(close: Decimal.fromInt(120)),
+      );
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('bt_a_explain')));
+      await tester.tap(find.byKey(const Key('bt_a_explain')));
+      expect(explained.single.params, runA.setup.fields);
+      expect(explained.single.capital, runA.result.capital);
+      expect(explained.single.netProfit, runA.result.netProfit);
+      expect(explained.single.candleCount, runA.candles.length);
+      expect(explained.single.from, runA.candles.first.openTime);
+      expect(explained.single.to, runA.candles.last.openTime);
+      expect(explained.single.symbol, 'BTCUSDT');
+      expect(
+        explained.single.intervalCode,
+        ProviderScope.containerOf(tester.element(find.byType(BacktestScreen)))
+            .read(selectedIntervalProvider)
+            .code,
+      );
+      await tester.ensureVisible(find.byKey(const Key('bt_compare')));
+      await tester.tap(find.byKey(const Key('bt_compare')));
+      await tester.pump();
+      await _run(tester, 'b');
+      final runB = _state(tester).resultB! as BacktestRun;
+      await tester.ensureVisible(find.byKey(const Key('bt_b_explain')));
+      await tester.tap(find.byKey(const Key('bt_b_explain')));
+      expect(explained.last.kind, 'dca');
+      expect(explained.last.params, runB.setup.fields);
+      expect(explained.last.finalEquity, runB.result.finalEquity);
+    },
+  );
+
+  testWidgets('successful results hide explain without a callback', (
+    tester,
+  ) async {
+    await _pumpScreen(tester);
+    await _run(tester, 'a');
+    expect(find.byKey(const Key('bt_a_explain')), findsNothing);
+  });
+
   testWidgets(
     'runner failure replaces progress with an error and allows retry',
     (tester) async {

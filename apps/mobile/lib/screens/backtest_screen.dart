@@ -1,7 +1,10 @@
 import 'package:features_backtest/features_backtest.dart';
+import 'package:features_insights/features_insights.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:tradelens/router.dart';
 
 /// Route wrapper for `/p/:symbol/backtest`: the symbol resolved against
 /// the active source, the same way the pair screen does it.
@@ -13,6 +16,7 @@ class BacktestRouteScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final instruments = ref.watch(marketInstrumentsProvider);
+    final aiEnabled = ref.watch(aiInsightsEnabledProvider);
     return AsyncValueView(
       value: instruments,
       loading: () => Scaffold(
@@ -36,7 +40,16 @@ class BacktestRouteScreen extends ConsumerWidget {
             body: Center(child: Text(context.l10n.pairNotAvailable(symbol))),
           );
         }
-        return BacktestScreen(instrument: match.first);
+        return BacktestScreen(
+          instrument: match.first,
+          onExplain: aiEnabled
+              ? (metrics) => showBacktestExplanationSheet(
+                  context,
+                  metrics: metrics,
+                  onOpenAiSettings: () => context.go(AppRoutes.settingsAi),
+                )
+              : null,
+        );
       },
     );
   }

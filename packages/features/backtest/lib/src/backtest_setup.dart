@@ -193,12 +193,14 @@ final class BacktestRun extends BacktestRunOutcome {
     required this.sourceCandles,
     required this.candles,
     required this.sourceLength,
+    required this.interval,
   }) : setup = BacktestSetup(
          kind: setup.kind,
          fields: Map.unmodifiable(setup.fields),
        );
 
   final BacktestResult result;
+  final Interval? interval;
   final BacktestSetup setup;
   final List<Candle> sourceCandles;
   final int sourceLength;
@@ -279,7 +281,11 @@ class BacktestSetups extends _$BacktestSetups {
   void updateB(BacktestSetup b) => state = state.copyWith(b: b);
   void toggleCompare() => state = state.copyWith(compare: !state.compare);
 
-  Future<String?> run(List<Candle> candles, {bool second = false}) async {
+  Future<String?> run(
+    List<Candle> candles, {
+    bool second = false,
+    Interval? interval,
+  }) async {
     if (second ? state.runningB : state.runningA) return null;
     final current = second ? state.b : state.a;
     final setup = BacktestSetup(
@@ -299,6 +305,7 @@ class BacktestSetups extends _$BacktestSetups {
       if (!ref.mounted) return null;
       final snapshot = BacktestRun(
         result: result,
+        interval: interval,
         setup: setup,
         sourceCandles: candles,
         candles: input,

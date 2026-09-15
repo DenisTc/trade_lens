@@ -6,10 +6,12 @@
 library;
 
 export 'src/errors.dart';
+export 'src/metrics_summary_session.dart';
 export 'src/model_config.dart';
 export 'src/move_structure.dart';
 export 'src/sse.dart';
 export 'src/stream_events.dart';
+export 'src/summary_provider.dart';
 export 'src/summary_session.dart';
 export 'src/tools.dart';
 export 'src/transport.dart';

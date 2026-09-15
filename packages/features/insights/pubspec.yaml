@@ -8,6 +8,7 @@ environment:
   flutter: ">=3.47.0"
 dependencies:
   ai_insights:
+  backtest:
   chart:
   core:
   domain:
@@ -26,5 +27,6 @@ dev_dependencies:
   very_good_analysis: ^11.0.0
 flutter:
   assets:
+    - assets/ai/demo_backtest.json
     - assets/ai/demo_summary.json
     - assets/sdui/insights_default.json
