@@ -3,6 +3,8 @@
 /// `sdui` and rendered with the live ticker card from this package.
 library;
 
+export 'src/ai/backtest_explanation_controller.dart';
+export 'src/ai/backtest_explanation_sheet.dart';
 export 'src/ai/demo_transport.dart';
 export 'src/ai/market_tools_adapter.dart';
 export 'src/ai/move_summary_controller.dart';

@@ -328,6 +328,9 @@ it. The flow, in `packages/ai_insights` (pure Dart) and
 - with no key the sheet plays a recorded example (bundled asset) so the
   feature can be shown and screenshotted without spending anything.
 
+Successful backtest runs can also ask AI to explain their computed metrics and setup in a prose-only stream, with a free hand-written example.
+The `SummaryProvider` interface in `packages/ai_insights` is the seam for replacing the metrics explanation runtime without changing its UI.
+
 The key never reaches a log, a crash report or the Dio base options, and
 the pin of `api.anthropic.com` is checked on a handshake of its own before
 the first request, because Dio validates a certificate only once the

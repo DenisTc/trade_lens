@@ -10,20 +10,29 @@ import 'package:flutter/services.dart';
 const demoSummaryAsset =
     'packages/features_insights/assets/ai/demo_summary.json';
 
-/// Replays [demoSummaryAsset] as the API would stream it: the same SSE
-/// events, so the whole client path (decoder, tool loop, structured call)
-/// is exercised, only without a network. Never sends the key anywhere.
+// This backtest example is hand-written, not recorded from the API.
+const demoBacktestAsset =
+    'packages/features_insights/assets/ai/demo_backtest.json';
+
+/// Replays bundled answers as API SSE events without a network or sending
+/// the key anywhere. Unless [asset] is explicit, requests with `tools` or
+/// `output_config` replay [demoSummaryAsset] (move prose or its structured
+/// follow-up); requests with neither replay [demoBacktestAsset]. This also
+/// applies when the live transport is overridden through TL_AI_DEMO.
 final class DemoClaudeTransport implements ClaudeTransport {
   DemoClaudeTransport({
     Future<String> Function()? load,
-    this.delay = const Duration(milliseconds: 40),
-  }) : _load =
-           load ??
-           // Not cached: a cached future belongs to the zone of the first
-           // caller and never completes for a later widget test.
-           (() => rootBundle.loadString(demoSummaryAsset, cache: false));
+    String? asset,
+    Duration delay = const Duration(milliseconds: 40),
+  }) : this._(load, asset, delay);
 
-  final Future<String> Function() _load;
+  DemoClaudeTransport._(this._load, this.asset, this.delay);
+
+  final Future<String> Function()? _load;
+
+  /// An explicit asset to replay. By default the request chooses the move
+  /// or backtest example, including when used through TL_AI_DEMO.
+  final String? asset;
 
   /// Pause between deltas so the UI streams like the real thing.
   final Duration delay;
@@ -36,7 +45,16 @@ final class DemoClaudeTransport implements ClaudeTransport {
     required String apiKey,
     required CancelSignal cancel,
   }) async {
-    final decoded = jsonDecode(await _load());
+    final selectedAsset =
+        asset ??
+        (body.containsKey('tools') || body.containsKey('output_config')
+            ? demoSummaryAsset
+            : demoBacktestAsset);
+    // Not cached: each test zone must own its own bundle-load future.
+    final decoded = jsonDecode(
+      await (_load?.call() ??
+          rootBundle.loadString(selectedAsset, cache: false)),
+    );
     if (decoded is! Map<String, Object?>) {
       throw const AiError.invalidResponse('malformed demo asset');
     }
