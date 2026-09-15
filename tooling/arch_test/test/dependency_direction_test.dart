@@ -16,6 +16,7 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/chart': {'core', 'features_shared'},
   'packages/sdui': {'core'},
   'packages/ai_insights': {'core', 'domain'},
+  'packages/on_device_llm': {},
   // The backtest engine reads candles and produces figures; nothing else.
   'packages/backtest': {'core', 'domain'},
   // The Decimal → double boundary and the chart theme live here, so the

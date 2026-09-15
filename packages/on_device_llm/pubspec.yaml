@@ -1,0 +1,24 @@
+name: on_device_llm
+description: TradeLens on-device language models through a typed native bridge.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.13.0
+  flutter: '>=3.44.0'
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  pigeon: ^29.0.1
+  very_good_analysis: ^11.0.0
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: OnDeviceLlmPlugin
+      android:
+        package: com.tradelens.on_device_llm
+        pluginClass: OnDeviceLlmPlugin
