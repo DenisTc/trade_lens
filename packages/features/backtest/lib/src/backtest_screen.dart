@@ -16,10 +16,12 @@ class BacktestScreen extends ConsumerWidget {
     required this.instrument,
     super.key,
     this.localTime = true,
+    this.onExplain,
   });
 
   final Instrument instrument;
   final bool localTime;
+  final void Function(BacktestMetrics metrics)? onExplain;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,6 +64,7 @@ class BacktestScreen extends ConsumerWidget {
                 interval: interval,
                 candles: list,
                 localTime: localTime,
+                onExplain: onExplain,
               ),
       ),
     );
@@ -74,12 +77,14 @@ class _Body extends ConsumerWidget {
     required this.interval,
     required this.candles,
     required this.localTime,
+    required this.onExplain,
   });
 
   final Instrument instrument;
   final Interval interval;
   final List<Candle> candles;
   final bool localTime;
+  final void Function(BacktestMetrics metrics)? onExplain;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,13 +124,14 @@ class _Body extends ConsumerWidget {
           label: setups.compare ? l10n.backtestSetA : null,
           setup: setups.a,
           onChanged: notifier.updateA,
-          onRun: () => notifier.run(candles),
+          onRun: () => notifier.run(candles, interval: interval),
           result: setups.resultA,
           running: setups.runningA,
           candles: candles,
           interval: interval,
           localTime: localTime,
           prefix: 'a',
+          onExplain: onExplain == null ? null : _explain,
         ),
         if (setups.compare)
           _SetupCard(
@@ -133,13 +139,15 @@ class _Body extends ConsumerWidget {
             label: l10n.backtestSetB,
             setup: setups.b,
             onChanged: notifier.updateB,
-            onRun: () => notifier.run(candles, second: true),
+            onRun: () =>
+                notifier.run(candles, second: true, interval: interval),
             result: setups.resultB,
             running: setups.runningB,
             candles: candles,
             interval: interval,
             localTime: localTime,
             prefix: 'b',
+            onExplain: onExplain == null ? null : _explain,
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
@@ -163,6 +171,35 @@ class _Body extends ConsumerWidget {
       ],
     );
   }
+
+  void _explain(BacktestRun run) => onExplain!(
+    BacktestMetrics.fromResult(
+      run.result,
+      kind: run.setup.kind.name,
+      params: switch (run.setup.parse().valueOrNull) {
+        final GridParams p => {
+          'lower': p.lower.toString(),
+          'upper': p.upper.toString(),
+          'levels': p.levels.toString(),
+          'investment': p.investment.toString(),
+          'fee': (p.feeRate * Decimal.fromInt(100)).toString(),
+        },
+        final DcaParams p => {
+          'base': p.baseOrder.toString(),
+          'safety': p.safetyOrder.toString(),
+          'safetyOrders': p.safetyOrders.toString(),
+          'step': p.stepPct.toString(),
+          'takeProfit': p.takeProfitPct.toString(),
+        },
+        _ => throw StateError('A completed run must have valid parameters'),
+      },
+      symbol: instrument.symbol,
+      intervalCode: (run.interval ?? interval).code,
+      candleCount: run.candles.length,
+      from: run.candles.first.openTime,
+      to: run.candles.last.openTime,
+    ),
+  );
 }
 
 /// One parameter set with its own run button and result underneath.
@@ -178,6 +215,7 @@ class _SetupCard extends StatefulWidget {
     required this.localTime,
     required this.prefix,
     this.label,
+    this.onExplain,
     super.key,
   });
 
@@ -191,6 +229,7 @@ class _SetupCard extends StatefulWidget {
   final bool localTime;
   final String prefix;
   final String? label;
+  final void Function(BacktestRun run)? onExplain;
 
   @override
   State<_SetupCard> createState() => _SetupCardState();
@@ -320,6 +359,14 @@ class _SetupCardState extends State<_SetupCard> {
                     localTime: widget.localTime,
                   ),
                 ),
+                if (widget.onExplain case final explain?) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    key: Key('bt_${p}_explain'),
+                    onPressed: () => explain(run),
+                    child: Text(l10n.backtestExplain),
+                  ),
+                ],
               ],
             ],
           ),

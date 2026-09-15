@@ -25,7 +25,7 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/features/portfolio': _featureDeps,
   // The only feature that speaks to the Claude client (through its
   // interfaces; the transport itself is overridden by the app).
-  'packages/features/insights': {..._featureDeps, 'ai_insights'},
+  'packages/features/insights': {..._featureDeps, 'ai_insights', 'backtest'},
   'packages/features/settings': _featureDeps,
   'packages/features/backtest': {..._featureDeps, 'backtest'},
   'tooling/arch_test': {},
