@@ -18,7 +18,9 @@ const allowedInternalDependencies = <String, Set<String>>{
   'packages/ai_insights': {'core', 'domain'},
   // The backtest engine reads candles and produces figures; nothing else.
   'packages/backtest': {'core', 'domain'},
-  'packages/features/shared': {'core', 'domain'},
+  // The Decimal → double boundary and the chart theme live here, so the
+  // pair screen and the backtest draw candles the same way.
+  'packages/features/shared': {'core', 'domain', 'chart'},
   'packages/features/markets': _featureDeps,
   'packages/features/portfolio': _featureDeps,
   // The only feature that speaks to the Claude client (through its

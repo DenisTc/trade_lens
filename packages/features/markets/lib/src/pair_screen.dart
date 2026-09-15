@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
-import 'package:features_markets/src/chart_mapping.dart';
 import 'package:features_markets/src/connection_dot.dart';
 import 'package:features_markets/src/order_book_view.dart';
 import 'package:features_markets/src/pair_tile.dart';
@@ -173,20 +172,6 @@ class PairScreen extends ConsumerWidget {
 
 /// Chart colours from the tokens: rise and fall, accent crosshair with an
 /// accent price tag, hairline grid, mono axis labels.
-CandleChartTheme tradeLensChartTheme(BuildContext context) {
-  final t = context.tokens;
-  return CandleChartTheme(
-    up: t.up,
-    down: t.down,
-    grid: t.line,
-    axisText: t.muted,
-    crosshair: t.accent,
-    crosshairLabelBackground: t.accent,
-    crosshairLabelText: t.onAccent,
-    fontFamily: TradeLensFonts.mono,
-  );
-}
-
 /// The two averages the toggle turns on: the fast one in the accent, the
 /// slow one muted, so they read apart from the candles and each other.
 List<MovingAverage> chartOverlays(BuildContext context) {
