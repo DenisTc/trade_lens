@@ -184,7 +184,7 @@ class _SetupCard extends StatefulWidget {
   final BacktestSetup setup;
   final ValueChanged<BacktestSetup> onChanged;
   final Future<String?> Function() onRun;
-  final BacktestRun? result;
+  final BacktestRunOutcome? result;
   final bool running;
   final List<Candle> candles;
   final Interval interval;
@@ -212,7 +212,10 @@ class _SetupCardState extends State<_SetupCard> {
     final t = context.tokens;
     final setup = widget.setup;
     final p = widget.prefix;
-    final stale = widget.result?.isStale(setup, widget.candles) ?? false;
+    final stale = switch (widget.result) {
+      final BacktestRun run => run.isStale(setup, widget.candles),
+      _ => false,
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: DecoratedBox(
@@ -285,7 +288,18 @@ class _SetupCardState extends State<_SetupCard> {
                       )
                     : Text(l10n.backtestRun),
               ),
-              if (widget.result case final run?) ...[
+              if (widget.result case BacktestRunFailure(:final reason)
+                  when !widget.running) ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.backtestFailed(reason),
+                  key: Key('bt_${p}_error'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
+              if (widget.result case final BacktestRun run) ...[
                 const SizedBox(height: 16),
                 if (stale)
                   Padding(

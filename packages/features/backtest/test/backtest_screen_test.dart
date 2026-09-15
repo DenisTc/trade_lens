@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:backtest/backtest.dart';
 import 'package:chart/chart.dart';
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
@@ -17,7 +20,10 @@ Candle _c(int i) => Candle(
   volume: Decimal.fromInt(10 + i % 7),
 );
 
-Future<FakeMarketDataSource> _pumpScreen(WidgetTester tester) async {
+Future<FakeMarketDataSource> _pumpScreen(
+  WidgetTester tester, {
+  BacktestRunner? runner,
+}) async {
   tester.view
     ..physicalSize = const Size(800, 2400)
     ..devicePixelRatio = 1;
@@ -28,7 +34,12 @@ Future<FakeMarketDataSource> _pumpScreen(WidgetTester tester) async {
   final btc = source.instrumentFor(defaultAssets.first, 'USDT');
   await tester.pumpWidget(
     testApp(
-      overrides: fakeOverrides(source: source),
+      overrides: [
+        ...fakeOverrides(source: source),
+        if (runner != null)
+          backtestSetupsProvider(btc.symbol)
+              .overrideWith(() => BacktestSetups(runner: runner)),
+      ],
       home: BacktestScreen(instrument: btc, localTime: false),
     ),
   );
@@ -39,6 +50,48 @@ Future<FakeMarketDataSource> _pumpScreen(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'runner failure replaces progress with an error and allows retry',
+    (tester) async {
+      final completion = Completer<BacktestResult>();
+      var attempts = 0;
+      await _pumpScreen(
+        tester,
+        runner: (candles, params) {
+          if (attempts++ == 0) return completion.future;
+          return runSetup(candles, params);
+        },
+      );
+      await tester.tap(find.byKey(const Key('bt_a_run')));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      completion.completeError(StateError('engine failed'));
+      await tester.pumpAndSettle();
+
+      final error = find.byKey(const Key('bt_a_error'));
+      expect(error, findsOneWidget);
+      expect(
+        tester.widget<Text>(error).data,
+        'The run failed: Bad state: engine failed',
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byKey(const Key('bt_a_result')), findsNothing);
+      expect(_state(tester).runningA, isFalse);
+      expect(tester.takeException(), isNull);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('bt_a_run')))
+            .onPressed,
+        isNotNull,
+      );
+
+      await _run(tester, 'a');
+      expect(error, findsNothing);
+      expect(find.byKey(const Key('bt_a_result')), findsOneWidget);
+    },
+  );
+
   testWidgets('loaded candles run a grid with results and trade markers', (
     tester,
   ) async {
@@ -123,7 +176,10 @@ void main() {
       );
       expect(field.controller!.text, '2500');
       await _run(tester, 'a');
-      expect(_state(tester).resultA!.result.capital, Decimal.fromInt(2500));
+      expect(
+        (_state(tester).resultA! as BacktestRun).result.capital,
+        Decimal.fromInt(2500),
+      );
     },
   );
 
@@ -149,7 +205,10 @@ void main() {
           .opacity,
       1,
     );
-    expect(_state(tester).resultA!.result.capital, Decimal.fromInt(2500));
+    expect(
+      (_state(tester).resultA! as BacktestRun).result.capital,
+      Decimal.fromInt(2500),
+    );
   });
 
   testWidgets('a same-length live candle replacement marks results stale', (

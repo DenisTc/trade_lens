@@ -14,3 +14,10 @@ import 'package:domain/domain.dart';
 List<Decimal> candlePath(Candle c) => c.close >= c.open
     ? [c.open, c.low, c.high, c.close]
     : [c.open, c.high, c.low, c.close];
+
+/// Non-positive OHLC prices cannot supply a usable fill path.
+bool isUsableCandle(Candle candle) =>
+    candle.open > Decimal.zero &&
+    candle.low > Decimal.zero &&
+    candle.high > Decimal.zero &&
+    candle.close > Decimal.zero;

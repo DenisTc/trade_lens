@@ -19,14 +19,12 @@ final class BacktestSetup {
   /// Sensible starting values around [price]: a grid ±10 % with ten
   /// levels, a DCA with five safety orders two percent apart.
   factory BacktestSetup.around(Decimal price, {BotKind kind = BotKind.grid}) {
-    final ten = (price / Decimal.fromInt(10)).toDecimal(
-      scaleOnInfinitePrecision: 8,
-    );
+    final ten = price * Decimal.parse('0.1');
     return BacktestSetup(
       kind: kind,
       fields: {
-        'lower': _priceText(price - ten),
-        'upper': _priceText(price + ten),
+        'lower': price <= Decimal.zero ? '0' : _priceText(price - ten, price),
+        'upper': price <= Decimal.zero ? '1' : _priceText(price + ten, price),
         'levels': '10',
         'investment': '1000',
         'fee': '0.1',
@@ -124,19 +122,34 @@ final class BacktestSetup {
   }
 }
 
-/// A decimal comma is accepted only on its own; grouping is never stripped.
+/// A single comma with one or two fractional digits is a decimal separator.
+/// Other comma forms are ambiguous or grouped and are rejected.
 Decimal? parseBacktestNumber(String text) {
   final commas = ','.allMatches(text).length;
   final dots = '.'.allMatches(text).length;
   if (commas + dots > 1 || RegExp(r'\s').hasMatch(text)) return null;
+  if (commas == 1 && !RegExp(r'^[+-]?[0-9]*,[0-9]{1,2}$').hasMatch(text)) {
+    return null;
+  }
   return Decimal.tryParse(commas == 1 ? text.replaceFirst(',', '.') : text);
 }
 
-String _priceText(Decimal price) {
-  final text = price.round(scale: 8).toString();
-  return text.contains('.')
-      ? text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')
-      : text;
+/// Normalizing the reference price into [0.1, 1) gives the decimal exponent
+/// whose exponent + 4 places retain four significant digits of that price.
+String _priceText(Decimal bound, Decimal price) {
+  var normalized = price;
+  var exponent = 0;
+  final tenth = Decimal.parse('0.1');
+  final ten = Decimal.fromInt(10);
+  while (normalized < tenth) {
+    normalized *= ten;
+    exponent++;
+  }
+  while (normalized >= Decimal.one) {
+    normalized *= tenth;
+    exponent--;
+  }
+  return bound.round(scale: exponent + 4).toString();
 }
 
 /// Runs [params] over the newest 5000 candles, oldest first, off the UI isolate.
@@ -155,9 +168,25 @@ List<Candle> _latestCandles(List<Candle> candles) => List.unmodifiable(
   candles.skip(candles.length > 5000 ? candles.length - 5000 : 0),
 );
 
-/// The parameters and candle window belonging to a completed run.
+typedef BacktestRunner = Future<BacktestResult> Function(
+  List<Candle> candles,
+  Object params,
+);
+
 @immutable
-final class BacktestRun {
+sealed class BacktestRunOutcome {
+  const BacktestRunOutcome();
+}
+
+final class BacktestRunFailure extends BacktestRunOutcome {
+  const BacktestRunFailure(this.reason);
+
+  final String reason;
+}
+
+/// The parameters and candle window belonging to a successful run.
+@immutable
+final class BacktestRun extends BacktestRunOutcome {
   BacktestRun({
     required this.result,
     required BacktestSetup setup,
@@ -200,8 +229,8 @@ final class BacktestSetupsState {
   final BacktestSetup b;
   final bool seeded;
   final bool compare;
-  final BacktestRun? resultA;
-  final BacktestRun? resultB;
+  final BacktestRunOutcome? resultA;
+  final BacktestRunOutcome? resultB;
   final bool runningA;
   final bool runningB;
 
@@ -210,8 +239,8 @@ final class BacktestSetupsState {
     BacktestSetup? b,
     bool? seeded,
     bool? compare,
-    BacktestRun? resultA,
-    BacktestRun? resultB,
+    BacktestRunOutcome? resultA,
+    BacktestRunOutcome? resultB,
     bool? runningA,
     bool? runningB,
   }) => BacktestSetupsState(
@@ -230,6 +259,10 @@ final class BacktestSetupsState {
 /// even when a card is scrolled away or candles are loading.
 @riverpod
 class BacktestSetups extends _$BacktestSetups {
+  BacktestSetups({this.runner = runSetup});
+
+  final BacktestRunner runner;
+
   @override
   BacktestSetupsState build(String symbol) => const BacktestSetupsState();
 
@@ -262,7 +295,7 @@ class BacktestSetups extends _$BacktestSetups {
     final sourceLength = candles.length;
     _setRun(second, running: true);
     try {
-      final result = await runSetup(input, params);
+      final result = await runner(input, params);
       if (!ref.mounted) return null;
       final snapshot = BacktestRun(
         result: result,
@@ -272,13 +305,25 @@ class BacktestSetups extends _$BacktestSetups {
         sourceLength: sourceLength,
       );
       _setRun(second, running: false, result: snapshot);
+    } on Object catch (error) {
+      if (ref.mounted) {
+        _setRun(
+          second,
+          running: false,
+          result: BacktestRunFailure(error.toString()),
+        );
+      }
     } finally {
       if (ref.mounted) _setRun(second, running: false);
     }
     return null;
   }
 
-  void _setRun(bool second, {required bool running, BacktestRun? result}) {
+  void _setRun(
+    bool second, {
+    required bool running,
+    BacktestRunOutcome? result,
+  }) {
     state = second
         ? state.copyWith(runningB: running, resultB: result)
         : state.copyWith(runningA: running, resultA: result);

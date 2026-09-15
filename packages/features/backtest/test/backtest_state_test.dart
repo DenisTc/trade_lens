@@ -14,6 +14,45 @@ Candle _c(int i) => Candle(
 );
 
 void main() {
+  for (final second in [false, true]) {
+    for (final asynchronous in [false, true]) {
+      test(
+        'captures ${asynchronous ? 'async' : 'sync'} runner errors for ${second ? 'B' : 'A'}',
+        () async {
+          final provider = backtestSetupsProvider('BTCUSDT');
+          final container = ProviderContainer.test(
+            overrides: [
+              provider.overrideWith(
+                () => BacktestSetups(
+                  runner: (_, _) {
+                    if (asynchronous) {
+                      return Future.error(StateError('engine failed'));
+                    }
+                    throw StateError('engine failed');
+                  },
+                ),
+              ),
+            ],
+          )..listen(provider, (_, _) {});
+          final notifier = container.read(provider.notifier)
+            ..seedIfEmpty(Decimal.fromInt(100));
+
+          expect(await notifier.run([_c(0)], second: second), isNull);
+          final state = container.read(provider);
+          final result = second ? state.resultB : state.resultA;
+          expect(result, isA<BacktestRunFailure>());
+          expect(
+            (result! as BacktestRunFailure).reason,
+            'Bad state: engine failed',
+          );
+          expect(second ? state.resultA : state.resultB, isNull);
+          expect(state.runningA, isFalse);
+          expect(state.runningB, isFalse);
+        },
+      );
+    }
+  }
+
   test('seeding again preserves edits, comparison and both results', () async {
     final provider = backtestSetupsProvider('BTCUSDT');
     final container = ProviderContainer.test()..listen(provider, (_, _) {});
@@ -30,10 +69,16 @@ void main() {
     expect(state.a['lower'], '90');
     expect(state.b['upper'], '110');
     expect(state.compare, isTrue);
-    expect(state.resultA!.result.capital, Decimal.fromInt(2500));
-    expect(state.resultB!.result.capital, Decimal.fromInt(600));
-    expect(state.resultA!.isStale(state.a, candles), isFalse);
-    expect(state.resultB!.isStale(state.b, candles), isFalse);
+    expect(
+      (state.resultA! as BacktestRun).result.capital,
+      Decimal.fromInt(2500),
+    );
+    expect(
+      (state.resultB! as BacktestRun).result.capital,
+      Decimal.fromInt(600),
+    );
+    expect((state.resultA! as BacktestRun).isStale(state.a, candles), isFalse);
+    expect((state.resultB! as BacktestRun).isStale(state.b, candles), isFalse);
   });
 
   test(
@@ -52,15 +97,21 @@ void main() {
       await first;
       final state = container.read(provider);
       expect(state.runningA, isFalse);
-      expect(state.resultA!.result.capital, Decimal.fromInt(1000));
-      expect(state.resultA!.isStale(state.a, candles), isTrue);
+      expect(
+        (state.resultA! as BacktestRun).result.capital,
+        Decimal.fromInt(1000),
+      );
+      expect((state.resultA! as BacktestRun).isStale(state.a, candles), isTrue);
       await notifier.run(candles);
       expect(
-        container.read(provider).resultA!.result.capital,
+        (container.read(provider).resultA! as BacktestRun).result.capital,
         Decimal.fromInt(2500),
       );
       expect(
-        container.read(provider).resultA!.isStale(state.a, candles),
+        (container.read(provider).resultA! as BacktestRun).isStale(
+          state.a,
+          candles,
+        ),
         isFalse,
       );
     },
@@ -74,7 +125,7 @@ void main() {
     final candles = [_c(0), _c(1)];
     await notifier.run(candles);
     final state = container.read(provider);
-    final run = state.resultA!;
+    final run = state.resultA! as BacktestRun;
     expect(run.isStale(state.a, [...candles]), isTrue);
     expect(run.isStale(state.a.ofKind(BotKind.dca), candles), isTrue);
     // Equivalent values, even in a newly constructed setup, are not stale.

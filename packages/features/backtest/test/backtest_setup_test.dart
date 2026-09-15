@@ -48,16 +48,26 @@ void main() {
     }
   });
 
-  test('low-priced assets retain a ten percent range', () {
-    final setup = BacktestSetup.around(Decimal.parse('0.04'));
-    expect(setup['lower'], '0.036');
-    expect(setup['upper'], '0.044');
-    expect(setup.parse().valueOrNull, isA<GridParams>());
-  });
+  for (final (price, lower, upper) in [
+    ('0.00000004', '0.000000036', '0.000000044'),
+    ('0.04', '0.036', '0.044'),
+    ('68123.45', '61310', '74940'),
+    ('0', '0', '1'),
+  ]) {
+    test('around $price keeps distinct bounds at the price precision', () {
+      final setup = BacktestSetup.around(Decimal.parse(price));
+      expect(setup['lower'], lower);
+      expect(setup['upper'], upper);
+      expect(setup.parse().valueOrNull, isA<GridParams>());
+    });
+  }
 
   group('decimal separators', () {
     for (final (input, expected) in [
       ('1,5', '1.5'),
+      ('0,1', '0.1'),
+      ('1,25', '1.25'),
+      ('1.000', '1'),
       ('1.5', '1.5'),
       ('1000', '1000'),
     ]) {
@@ -72,6 +82,10 @@ void main() {
       });
     }
     for (final input in [
+      '1,000',
+      '1,',
+      '1,2345',
+      '1,5e2',
       '1,000.5',
       '1.000,5',
       '1,2,3',

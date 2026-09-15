@@ -74,6 +74,7 @@
   "backtestGrid": "Сетка",
   "backtestDca": "DCA",
   "backtestStale": "Параметры изменились — запустите снова",
+  "backtestFailed": "Прогон не удался: {reason}",
   "backtestRun": "Запустить",
   "backtestCompare": "Сравнить с другим набором",
   "backtestCompareOff": "Скрыть второй набор",

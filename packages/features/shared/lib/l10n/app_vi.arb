@@ -74,6 +74,7 @@
   "backtestGrid": "Lưới",
   "backtestDca": "DCA",
   "backtestStale": "Tham số đã thay đổi — chạy lại",
+  "backtestFailed": "Chạy thất bại: {reason}",
   "backtestRun": "Chạy",
   "backtestCompare": "So sánh với bộ tham số khác",
   "backtestCompareOff": "Ẩn bộ thứ hai",

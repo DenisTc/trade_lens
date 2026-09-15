@@ -82,6 +82,8 @@
   "backtestGrid": "Grid",
   "backtestDca": "DCA",
   "backtestStale": "Parameters changed — run again",
+  "backtestFailed": "The run failed: {reason}",
+  "@backtestFailed": {"placeholders": {"reason": {"type": "String"}}},
   "backtestRun": "Run",
   "backtestCompare": "Compare with another set",
   "backtestCompareOff": "Hide the second set",
