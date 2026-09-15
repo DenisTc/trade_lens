@@ -176,7 +176,23 @@ class _Body extends ConsumerWidget {
     BacktestMetrics.fromResult(
       run.result,
       kind: run.setup.kind.name,
-      params: run.setup.fields,
+      params: switch (run.setup.parse().valueOrNull) {
+        final GridParams p => {
+          'lower': p.lower.toString(),
+          'upper': p.upper.toString(),
+          'levels': p.levels.toString(),
+          'investment': p.investment.toString(),
+          'fee': (p.feeRate * Decimal.fromInt(100)).toString(),
+        },
+        final DcaParams p => {
+          'base': p.baseOrder.toString(),
+          'safety': p.safetyOrder.toString(),
+          'safetyOrders': p.safetyOrders.toString(),
+          'step': p.stepPct.toString(),
+          'takeProfit': p.takeProfitPct.toString(),
+        },
+        _ => throw StateError('A completed run must have valid parameters'),
+      },
       symbol: instrument.symbol,
       intervalCode: (run.interval ?? interval).code,
       candleCount: run.candles.length,

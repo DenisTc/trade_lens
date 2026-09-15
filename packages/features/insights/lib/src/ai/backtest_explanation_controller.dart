@@ -1,11 +1,20 @@
 import 'package:ai_insights/ai_insights.dart';
 import 'package:backtest/backtest.dart';
+import 'package:features_insights/src/ai/demo_transport.dart';
 import 'package:features_insights/src/ai/move_summary_controller.dart';
 import 'package:features_shared/features_shared.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'backtest_explanation_controller.g.dart';
+
+/// Creates the cloud summary implementation. An on-device implementation
+/// would override this factory and relax the controller's readiness/key gate.
+@riverpod
+SummaryProvider Function(ClaudeTransport transport, AiModelConfig config)
+summaryProviderFactory(Ref ref) =>
+    (transport, config) =>
+        MetricsSummarySession(transport: transport, config: config);
 
 @immutable
 final class BacktestExplanationState {
@@ -36,13 +45,14 @@ final class BacktestExplanationState {
     double? costUsd,
     bool? running,
     AiError? error,
+    bool? demo,
   }) => BacktestExplanationState(
     text: text ?? this.text,
     usage: usage ?? this.usage,
     costUsd: costUsd ?? this.costUsd,
     running: running ?? this.running,
     error: error,
-    demo: demo,
+    demo: demo ?? this.demo,
     started: started,
   );
 }
@@ -55,7 +65,7 @@ class BacktestExplanationController extends _$BacktestExplanationController {
   double _costUsd = 0;
 
   @override
-  BacktestExplanationState build(String key) {
+  BacktestExplanationState build(Object key) {
     ref.onDispose(stop);
     ref.listen(aiReadinessProvider, (_, next) {
       if (next != AiReadiness.ready && !state.demo) stop();
@@ -98,11 +108,13 @@ class BacktestExplanationController extends _$BacktestExplanationController {
       if (cancel.isCancelled || !ref.mounted) return;
       if (!demo && apiKey.isEmpty) throw const AiError.unauthorized();
       // This shared live provider also carries the app's TL_AI_DEMO override.
-      session = MetricsSummarySession(
-        transport: ref.read(
-          demo ? demoClaudeTransportProvider : claudeTransportProvider,
-        ),
-        config: ref.read(aiModelConfigProvider),
+      final transport = ref.read(
+        demo ? demoClaudeTransportProvider : claudeTransportProvider,
+      );
+      state = state.copyWith(demo: demo || transport is DemoClaudeTransport);
+      session = ref.read(summaryProviderFactoryProvider)(
+        transport,
+        ref.read(aiModelConfigProvider),
       );
       await for (final event in session.explainMetrics(
         metrics: metrics,

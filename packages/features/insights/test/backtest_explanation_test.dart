@@ -5,8 +5,10 @@ import 'package:backtest/backtest.dart';
 import 'package:core/core.dart';
 import 'package:domain/domain.dart';
 import 'package:features_insights/features_insights.dart';
+import 'package:features_shared/features_shared.dart';
 import 'package:features_shared/testing.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 BacktestMetrics _metrics() => BacktestMetrics.fromResult(
@@ -41,6 +43,27 @@ final class _StallingTransport implements ClaudeTransport {
   }) async {
     signal = cancel;
     return ClaudeResponse(status: 200, body: stream.stream);
+  }
+}
+
+final class _FakeSummaryProvider implements SummaryProvider {
+  @override
+  Usage get usage => const Usage(inputTokens: 12, outputTokens: 3);
+
+  @override
+  double get costUsd => 0.002;
+
+  @override
+  Stream<SummaryEvent> explainMetrics({
+    required Map<String, Object?> metrics,
+    required String apiKey,
+    required String languageCode,
+    required CancelSignal cancel,
+  }) async* {
+    yield const SummaryText('Injected ');
+    yield SummaryText('${metrics['symbol']} summary in $languageCode.');
+    yield SummaryUsage(usage: usage, costUsd: costUsd);
+    yield const SummaryDone();
   }
 }
 
@@ -93,6 +116,45 @@ void main() {
     secrets = FakeSecretStore();
     settings = FakeSettingsStore();
     opened = false;
+  });
+
+  test('overridden summary factory streams into controller state', () async {
+    secrets.values[SecretKeys.anthropicApiKey] = 'sk-test';
+    final transport = _StallingTransport();
+    final container = ProviderContainer(
+      overrides: [
+        secretStoreProvider.overrideWithValue(secrets),
+        aiReadinessProvider.overrideWithValue(AiReadiness.ready),
+        claudeTransportProvider.overrideWithValue(transport),
+        aiModelConfigProvider.overrideWithValue(AiModelConfig.defaults),
+        summaryProviderFactoryProvider.overrideWithValue((actual, config) {
+          expect(actual, same(transport));
+          expect(config, AiModelConfig.defaults);
+          return _FakeSummaryProvider();
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final provider = backtestExplanationControllerProvider(UniqueKey());
+    final states = <BacktestExplanationState>[];
+    final subscription = container.listen(
+      provider,
+      (_, next) => states.add(next),
+    );
+    addTearDown(subscription.close);
+
+    await container
+        .read(provider.notifier)
+        .start(metrics: _metrics(), languageCode: 'vi');
+
+    expect(states.map((state) => state.text), contains('Injected '));
+    final state = container.read(provider);
+    expect(state.text, 'Injected BTCUSDT summary in vi.');
+    expect(state.usage, const Usage(inputTokens: 12, outputTokens: 3));
+    expect(state.costUsd, 0.002);
+    expect(state.running, isFalse);
+    expect(state.error, isNull);
+    expect(state.demo, isFalse);
   });
 
   testWidgets('no key offers settings', (tester) async {
@@ -155,6 +217,7 @@ void main() {
           .data,
       contains('grid run'),
     );
+    expect(find.byKey(const Key('ai_demo_badge')), findsOneWidget);
     expect(find.byKey(const Key('ai_structure')), findsNothing);
     expect(find.byKey(const Key('ai_error')), findsNothing);
   });

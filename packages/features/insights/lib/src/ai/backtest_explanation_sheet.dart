@@ -48,7 +48,7 @@ class BacktestExplanationSheet extends ConsumerStatefulWidget {
 class _BacktestExplanationSheetState
     extends ConsumerState<BacktestExplanationSheet> {
   // Separate sheet openings own separate cancellation and billing lifetimes.
-  final _key = UniqueKey().toString();
+  final _key = UniqueKey();
 
   void _start({bool demo = false}) {
     final controller = ref.read(

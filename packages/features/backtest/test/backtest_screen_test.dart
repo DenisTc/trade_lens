@@ -71,7 +71,13 @@ void main() {
       await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('bt_a_explain')));
       await tester.tap(find.byKey(const Key('bt_a_explain')));
-      expect(explained.single.params, runA.setup.fields);
+      expect(explained.single.params, {
+        'lower': '92.7',
+        'upper': '113.3',
+        'levels': '10',
+        'investment': '1000',
+        'fee': '0.1',
+      });
       expect(explained.single.capital, runA.result.capital);
       expect(explained.single.netProfit, runA.result.netProfit);
       expect(explained.single.candleCount, runA.candles.length);
@@ -92,10 +98,48 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('bt_b_explain')));
       await tester.tap(find.byKey(const Key('bt_b_explain')));
       expect(explained.last.kind, 'dca');
-      expect(explained.last.params, runB.setup.fields);
+      expect(explained.last.params, {
+        'base': '100',
+        'safety': '100',
+        'safetyOrders': '5',
+        'step': '2',
+        'takeProfit': '1.5',
+      });
       expect(explained.last.finalEquity, runB.result.finalEquity);
     },
   );
+
+  testWidgets('grid metrics exclude stale DCA fields and normalize numbers', (
+    tester,
+  ) async {
+    final explained = <BacktestMetrics>[];
+    await _pumpScreen(tester, onExplain: explained.add);
+    final l10n = tester.element(find.byType(BacktestScreen)).l10n;
+    await tester.tap(find.text(l10n.backtestDca));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('bt_a_base')), 'stale DCA');
+    await tester.pump();
+    await tester.tap(find.text(l10n.backtestGrid));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('bt_a_lower')), '90,50');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('bt_a_upper')), '110.00');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('bt_a_levels')), '005');
+    await tester.pump();
+    await _run(tester, 'a');
+    await tester.ensureVisible(find.byKey(const Key('bt_a_explain')));
+    await tester.tap(find.byKey(const Key('bt_a_explain')));
+    expect(explained.single.kind, 'grid');
+    expect(explained.single.params, {
+      'lower': '90.5',
+      'upper': '110',
+      'levels': '5',
+      'investment': '1000',
+      'fee': '0.1',
+    });
+    expect(explained.single.params, isNot(contains('base')));
+  });
 
   testWidgets('successful results hide explain without a callback', (
     tester,
