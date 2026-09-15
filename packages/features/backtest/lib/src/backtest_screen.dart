@@ -90,6 +90,13 @@ class _Body extends ConsumerWidget {
     final provider = backtestSetupsProvider(instrument.symbol);
     final setups = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
+    final first = candles.first.openTime;
+    final last = candles.last.openTime;
+    final sameDay = DateUtils.isSameDay(first.toLocal(), last.toLocal());
+    String rangeEnd(DateTime at) => sameDay
+        ? MoneyFormat.time(at, locale: locale)
+        : '${MoneyFormat.date(at, locale: locale)} '
+              '${MoneyFormat.time(at, locale: locale)}';
 
     return ListView(
       padding: EdgeInsets.only(
@@ -101,8 +108,8 @@ class _Body extends ConsumerWidget {
           child: Text(
             l10n.backtestCandles(
               candles.length,
-              MoneyFormat.time(candles.first.openTime, locale: locale),
-              MoneyFormat.time(candles.last.openTime, locale: locale),
+              rangeEnd(first),
+              rangeEnd(last),
             ),
             style: theme.textTheme.bodySmall,
           ),

@@ -12,7 +12,8 @@ Binance, Bybit, CoinGecko and Anthropic directly.
 > on Drift with offline valuation, locales en/ru/vi, the «Оптика» design
 > (dark and light themes, glass tab bar, app icon), store screenshots, the
 > server-driven Insights screen from Firebase Remote Config, the AI move
-> summary on the user's own Claude API key, deep links, Patrol e2e in CI
+> summary on the user's own Claude API key, the v2 backtest screen for grid
+> and DCA with trades on the chart, deep links, Patrol e2e in CI
 > and the Fastlane release lanes. Two things from the spec are not here:
 > the TestFlight and Play uploads, which need paid accounts, and the
 > deferred deep link, which needs an attribution SDK behind one — both in
@@ -76,6 +77,7 @@ every tick and falls back to the last stored quote ("as of HH:mm") offline.
 | Unit / golden / Patrol tests, architecture tests | `*/test`, `apps/mobile/integration_test`, `tooling/arch_test` |
 | GitHub Actions, Fastlane to TestFlight and the Play internal track | `.github/workflows`, `apps/mobile/{ios,android}/fastlane` |
 | The Claude client reused outside the app, reviewing pull requests | `tooling/ai_review` |
+| Backtest engine, pure Dart with Decimal money: grid and DCA, a fill model over the candle path | packages/backtest, packages/features/backtest |
 
 ## Layout
 
@@ -230,6 +232,23 @@ it the job says so and exits, so a fork never fails on a key it cannot
 have. `TL_AI_REVIEW_MODEL` (a repository variable) takes the same JSON as
 the app's `ai_model` in Remote Config, which is where the model and its
 price live.
+
+## Backtest (v2)
+
+Run grid and DCA strategies over the loaded candles, see their trades on
+the chart, and compare two sets of parameters side by side.
+
+The result is an estimate over historical candles, not a forecast. The
+model is spot only: no slippage, partial fills, trailing or stop-loss. It
+models intra-candle prices only through an open → extremes → close path;
+the actual price movements between those points are unknown. See
+[ADR-0005 · The backtest fill model](docs/decisions/0005-backtest-fill-model.md).
+
+**Sources of the algorithms.** Open descriptions of grid bots (Binance
+Spot Grid help pages) and DCA bots (3Commas docs on base/safety orders,
+step, volume scaling and take profit), plus Pionex overview articles.
+These supply descriptions of the mechanics only; no code from anywhere
+is used.
 
 ## Decisions
 

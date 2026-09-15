@@ -44,7 +44,17 @@ void main() {
   ) async {
     await _pumpScreen(tester);
 
-    expect(find.textContaining('60 candles,'), findsOneWidget);
+    final locale = tester.element(find.byType(BacktestScreen)).localeTag;
+    expect(
+      find.text(
+        '60 candles, '
+        '${MoneyFormat.date(_c(0).openTime, locale: locale)} '
+        '${MoneyFormat.time(_c(0).openTime, locale: locale)} – '
+        '${MoneyFormat.date(_c(59).openTime, locale: locale)} '
+        '${MoneyFormat.time(_c(59).openTime, locale: locale)}',
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('bt_setup_a')), findsOneWidget);
     expect(find.byKey(const Key('bt_a_result')), findsNothing);
 
