@@ -46,14 +46,21 @@ final class GridParams {
   }
 }
 
-/// Runs a grid over [candles], oldest first. Empty candles, or a first
-/// open outside the range, yield a run with no trades: a grid is not
+/// Runs a grid over [candles], oldest first. No usable candles, or a first
+/// usable open outside the range, yield a run with no trades: a grid is not
 /// started against a price it does not cover.
 BacktestResult runGrid(List<Candle> candles, GridParams params) {
   final ledger = Ledger(feeRate: params.feeRate, quote: params.investment);
   if (candles.isEmpty) return ledger.result(Decimal.zero);
+  final firstUsable = candles.indexWhere(isUsableCandle);
+  if (firstUsable == -1) {
+    for (final candle in candles) {
+      ledger.mark(candle.openTime, candle.close);
+    }
+    return ledger.result(candles.last.close);
+  }
   final prices = params.prices;
-  final entry = candles.first.open;
+  final entry = candles[firstUsable].open;
   if (entry < params.lower || entry > params.upper) {
     for (final candle in candles) {
       ledger.mark(candle.openTime, candle.close);
@@ -70,7 +77,12 @@ BacktestResult runGrid(List<Candle> candles, GridParams params) {
       entry * Decimal.fromInt(above.length) +
       below.fold(Decimal.zero, (sum, p) => sum + p);
   final grossPerUnit = costPerUnit * (Decimal.one + params.feeRate);
-  if (grossPerUnit == Decimal.zero) return ledger.result(candles.last.close);
+  if (grossPerUnit <= Decimal.zero) {
+    for (final candle in candles) {
+      ledger.mark(candle.openTime, candle.close);
+    }
+    return ledger.result(candles.last.close);
+  }
   final qty = Money.qty(params.investment / grossPerUnit);
   // Too little for one unit per level at this precision: no grid.
   if (qty <= Decimal.zero) {
@@ -85,7 +97,10 @@ BacktestResult runGrid(List<Candle> candles, GridParams params) {
   // and both must sell. Sells remember what their base cost.
   final sells = <int, Queue<Decimal>>{};
   final buys = <int, int>{};
-  final at = candles.first.openTime;
+  for (final candle in candles.take(firstUsable)) {
+    ledger.mark(candle.openTime, candle.close);
+  }
+  final at = candles[firstUsable].openTime;
   if (above.isNotEmpty) {
     ledger.buy(at, entry, qty * Decimal.fromInt(above.length));
     final unitCost = entry * qty * (Decimal.one + params.feeRate);
@@ -148,7 +163,11 @@ BacktestResult runGrid(List<Candle> candles, GridParams params) {
     }
   }
 
-  for (final candle in candles) {
+  for (final candle in candles.skip(firstUsable)) {
+    if (!isUsableCandle(candle)) {
+      ledger.mark(candle.openTime, candle.close);
+      continue;
+    }
     final path = candlePath(candle);
     var from = path.first;
     // The open itself: whatever rests exactly there fills before the

@@ -81,7 +81,12 @@ BacktestResult runDca(List<Candle> candles, DcaParams params) {
   /// nothing could be bought.
   bool fill(DateTime at, Decimal price, Decimal quote) {
     final outlay = quote < ledger.quoteHeld ? quote : ledger.quoteHeld;
-    if (outlay <= Decimal.zero) return false;
+    if (outlay <= Decimal.zero ||
+        price <= Decimal.zero ||
+        afterFee <= Decimal.zero ||
+        Decimal.one + params.feeRate <= Decimal.zero) {
+      return false;
+    }
     // Fees come out of the outlay, so it is the whole of what is spent.
     final qty = Money.qty(outlay / (price * (Decimal.one + params.feeRate)));
     if (qty <= Decimal.zero) return false;
@@ -144,8 +149,16 @@ BacktestResult runDca(List<Candle> candles, DcaParams params) {
     }
   }
 
-  open(candles.first.openTime, candles.first.open);
+  var started = false;
   for (final candle in candles) {
+    if (!isUsableCandle(candle)) {
+      ledger.mark(candle.openTime, candle.close);
+      continue;
+    }
+    if (!started) {
+      open(candle.openTime, candle.open);
+      started = true;
+    }
     final path = candlePath(candle);
     var from = path.first;
     walk(candle.openTime, from, from);

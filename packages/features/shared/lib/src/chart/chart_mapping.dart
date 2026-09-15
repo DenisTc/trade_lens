@@ -1,6 +1,6 @@
 import 'package:chart/chart.dart';
 import 'package:domain/domain.dart';
-import 'package:features_shared/features_shared.dart';
+import 'package:features_shared/src/providers/pair.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'chart_mapping.g.dart';

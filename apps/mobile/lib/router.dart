@@ -4,6 +4,7 @@ import 'package:features_settings/features_settings.dart'
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:tradelens/screens/backtest_screen.dart';
 import 'package:tradelens/screens/home_shell.dart';
 import 'package:tradelens/screens/insights_screen.dart';
 import 'package:tradelens/screens/markets_screen.dart';
@@ -20,6 +21,8 @@ abstract final class AppRoutes {
   static const insights = '/insights';
   static const portfolio = '/portfolio';
   static const settings = '/settings';
+
+  static String backtestPath(String symbol) => '/p/$symbol/backtest';
   static const settingsAi = '/settings/ai';
   static const settingsAppearance = '/settings/appearance';
   static const settingsSource = '/settings/source';
@@ -61,6 +64,14 @@ GoRouter router(Ref ref) => GoRouter(
                   path: 'p/:symbol',
                   builder: (context, state) =>
                       PairScreen(symbol: state.pathParameters['symbol']!),
+                  routes: [
+                    GoRoute(
+                      path: 'backtest',
+                      builder: (context, state) => BacktestRouteScreen(
+                        symbol: state.pathParameters['symbol']!,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

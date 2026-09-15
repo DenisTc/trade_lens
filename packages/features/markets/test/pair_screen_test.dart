@@ -19,10 +19,41 @@ Candle _c(int i, {Duration step = const Duration(minutes: 1)}) => Candle(
 void main() {
   _overlayTests();
 
-  Widget app(FakeMarketDataSource source, Instrument instrument) => testApp(
+  Widget app(
+    FakeMarketDataSource source,
+    Instrument instrument, {
+    VoidCallback? onBacktest,
+  }) => testApp(
     overrides: fakeOverrides(source: source),
-    home: PairScreen(instrument: instrument, localTime: false),
+    home: PairScreen(
+      instrument: instrument,
+      localTime: false,
+      onBacktest: onBacktest,
+    ),
   );
+
+  testWidgets('backtest button is available only with a callback', (
+    tester,
+  ) async {
+    final source = FakeMarketDataSource(history: [_c(0)]);
+    final btc = source.instrumentFor(defaultAssets.first, 'USDT');
+    var calls = 0;
+    await tester.pumpWidget(app(source, btc, onBacktest: () => calls++));
+    await tester.pump();
+    await tester.pump();
+
+    final button = find.byKey(const Key('backtest_button'));
+    expect(button, findsOneWidget);
+    expect(calls, 0);
+    await tester.tap(button);
+    await tester.pump();
+    expect(calls, 1);
+
+    await tester.pumpWidget(app(source, btc));
+    await tester.pump();
+    await tester.pump();
+    expect(button, findsNothing);
+  });
 
   testWidgets('full source: chart, interval selector, book and tape', (
     tester,

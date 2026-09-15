@@ -66,6 +66,41 @@ void main() {
       );
     });
 
+    testWidgets('50 candles with trade markers · $suffix', (tester) async {
+      final candles = syntheticCandles(50);
+      await tester.pumpWidget(
+        host(
+          CandleChart(
+            series: CandleSeries.of(candles),
+            interval: ChartInterval.m1,
+            localTime: false,
+            markers: [
+              ChartMarker(
+                at: candles[10].openTime,
+                price: candles[10].low,
+                up: true,
+              ),
+              ChartMarker(
+                at: candles[25].openTime,
+                price: candles[25].high,
+                up: false,
+              ),
+              ChartMarker(
+                at: candles[40].openTime,
+                price: candles[40].low,
+                up: true,
+              ),
+            ],
+          ),
+          brightness: brightness,
+        ),
+      );
+      await expectLater(
+        find.byType(CandleChart),
+        matchesGoldenFile('goldens/candle_chart_50_markers_$suffix.png'),
+      );
+    });
+
     testWidgets('50 candles with volume · $suffix', (tester) async {
       await tester.pumpWidget(
         host(
